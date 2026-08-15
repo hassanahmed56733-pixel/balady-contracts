@@ -693,9 +693,9 @@
 
     </style>
     
-    <!-- Firebase Scripts للبيانات المشتركة السحابية -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+        // <!-- Firebase Scripts للبيانات المشتركة السحابية -->
+    <!-- Supabase Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0/dist/umd/supabase.min.js"></script>
 </head>
 <body oncontextmenu="return false;">
 
@@ -1457,18 +1457,8 @@
 
         async function savePdfBlob(contractNumber, blob, fileName) {
             try {
-                // ✅ حفظ في Firebase Realtime Database (للمشاركة السحابية)
-                if (firebaseInitialized) {
-                    try {
-                        const reader = new FileReader();
-                        reader.onload = function(event) {
-                            const base64 = event.target.result;
-                            const db = firebase.database();
-                            db.ref('contracts-pdfs/' + contractNumber).set({
-                                fileName: fileName || (contractNumber + '.pdf'),
-                                base64: base64,
-                                savedAt: new Date().toISOString()
-                            }).then(() => {
+        // // ✅ حفظ في Firebase Realtime Database (للمشاركة السحابية)
+        // Firebase removed
                                 console.log('✓ تم حفظ PDF في السحابة:', contractNumber);
                             }).catch(err => {
                                 console.warn('Cloud PDF save failed:', err);
@@ -1503,21 +1493,6 @@
             try {
                 const n = String(contractNumber || '');
                 
-                // ✅ محاولة التحميل من Firebase Realtime Database أولاً (السحابة)
-                if (firebaseInitialized) {
-                    try {
-                        const db = firebase.database();
-                        const snapshot = await db.ref('contracts-pdfs/' + n).once('value');
-                        const data = snapshot.val();
-                        if (data && data.base64) {
-                            console.log('✓ تم تحميل PDF من السحابة:', n);
-                            // تحويل base64 إلى blob
-                            const arr = data.base64.split(',');
-                            const mime = arr[0].match(/:(.*?);/)[1];
-                            const bstr = atob(arr[1]);
-                            const n_arr = new Uint8Array(bstr.length);
-                            for (let i = 0; i < bstr.length; i++) n_arr[i] = bstr.charCodeAt(i);
-                            const blob = new Blob([n_arr], { type: mime });
                             return { blob: blob, contractNumber: n, fileName: data.fileName, fromCloud: true };
                         }
                     } catch (cloudErr) {
@@ -2163,6 +2138,7 @@
 
         window.addEventListener('load', () => {
             try { loadFromLocalStorage(); } catch(e) { console.error(e); allContracts = []; }
+            try { initSupabase(); } catch(e) { console.warn('Supabase initialization failed:', e); }
             try { applyCustomBinPrices(); } catch(e) {}
             try { renderBinTypes(); } catch(e) {}
             // القوائم مخفية افتراضياً — تُفتح فقط بكلمة سر عبر «عرض القائمة»
@@ -7326,6 +7302,7 @@ function saveEmail(contractNumber, email) {
             allContracts = allContracts.filter(c => c.contractNumber !== num);
             deletePdfBlob(num);
             try { if (typeof deleteContractFromCloud === 'function') deleteContractFromCloud(num); } catch (e) {}
+            try { deleteFromSupabase(num); } catch (e) {}
             // حفظ محلي بدون إعادة رفع كل العقود (الحذف السحابي تم أعلاه)
             localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
             applyFilters();
@@ -7511,7 +7488,9 @@ function saveEmail(contractNumber, email) {
                 body { background:#f1f5f9; padding:12px; font-family: 'Segoe UI', Tahoma, sans-serif; }
                 .report-container { background:white; max-width:900px; margin:0 auto; }
                 @media print { body, body * { visibility: visible !important; } }
-                </style></head><body>
+                </style>    <!-- Supabase Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0/dist/umd/supabase.min.js"></script>
+</head><body>
                 <div style="text-align:center;margin-bottom:10px;">
                   <button onclick="window.print()" style="padding:8px 16px;background:#0f766e;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:700;">🖨️ طباعة</button>
                   <button onclick="window.close()" style="padding:8px 16px;background:#dc2626;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:700;margin-right:8px;">إغلاق</button>
@@ -7562,7 +7541,9 @@ function saveEmail(contractNumber, email) {
                     ' html,body{height:auto!important;overflow:hidden!important;margin:0!important;padding:0!important}' +
                     ' .report-container{page-break-inside:avoid!important;page-break-after:avoid!important;break-inside:avoid!important}' +
                     ' .frp-bar,[data-drag],[data-print],[data-close]{display:none!important} }' +
-                    '</style></head><body>' +
+                    '</style>    <!-- Supabase Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0/dist/umd/supabase.min.js"></script>
+</head><body>' +
                     panel.querySelector('.frp-body').innerHTML + '</body></html>');
                 w.document.close();
                 setTimeout(function(){ try { w.print(); } catch(e) {} }, 400);
@@ -8009,6 +7990,129 @@ document.getElementById("reportModal").style.display="block";
             }
         }
 
+        // ════════════════════════════════════════════════════════════
+        // SUPABASE CONFIGURATION
+        // ════════════════════════════════════════════════════════════
+        const SUPABASE_URL = 'https://pthfrwsmdjcbaholfext.supabase.co'; // https://xyzabc.supabase.co
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0aGZyd3NtZGpjYmFob2xmZXh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3OTM3MzMsImV4cCI6MjEwMjM2OTczM30.XOV0iZMmuaPz5Yn2xZaCw1mRmxKNFRus6KR5S_iiAi8';
+        
+        let supabase = null;
+        let supabaseReady = false;
+
+        function initSupabase() {
+            try {
+                if (!SUPABASE_URL || SUPABASE_URL.includes('YOUR_')) {
+                    console.warn('⚠️ Supabase not configured - using localStorage only');
+                    return false;
+                }
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                supabaseReady = true;
+                console.log('✅ Supabase initialized');
+                loadContractsFromSupabase();
+                subscribeToChanges();
+                return true;
+            } catch (e) {
+                console.error('❌ Supabase error:', e);
+                return false;
+            }
+        }
+
+        async function loadContractsFromSupabase() {
+            if (!supabaseReady || !supabase) return;
+            try {
+                const { data, error } = await supabase.from('contracts').select('*');
+                if (error) throw error;
+                
+                if (data && data.length > 0) {
+                    allContracts = data.map(row => ({
+                        contractNumber: row.contract_number,
+                        customerName: row.customer_name,
+                        commercialRegistry: row.commercial_registry,
+                        phone: row.phone,
+                        email: row.email,
+                        district: row.district,
+                        location: row.location,
+                        municipality: row.municipality,
+                        binSize: row.bin_size,
+                        quantity: row.quantity,
+                        pricePerUnit: row.price_per_unit,
+                        totalArea: row.total_area,
+                        oldStartDate: row.old_start_date,
+                        oldEndDate: row.old_end_date,
+                        newStartDate: row.new_start_date,
+                        newEndDate: row.new_end_date,
+                        coordinates: row.coordinates,
+                        mapUrl: row.map_url,
+                        fileName: row.file_name
+                    }));
+                    console.log('✅ Loaded', data.length, 'contracts from Supabase');
+                    applyFilters(true);
+                }
+            } catch (e) {
+                console.error('❌ Error loading from Supabase:', e);
+            }
+        }
+
+        async function saveToSupabase(contract) {
+            if (!supabaseReady || !supabase) {
+                saveToLocalStorage();
+                return;
+            }
+            try {
+                await supabase.from('contracts').upsert({
+                    contract_number: contract.contractNumber,
+                    customer_name: contract.customerName,
+                    commercial_registry: contract.commercialRegistry,
+                    phone: contract.phone,
+                    email: contract.email,
+                    district: contract.district,
+                    location: contract.location,
+                    municipality: contract.municipality,
+                    bin_size: contract.binSize,
+                    quantity: contract.quantity,
+                    price_per_unit: contract.pricePerUnit,
+                    total_area: contract.totalArea,
+                    old_start_date: contract.oldStartDate,
+                    old_end_date: contract.oldEndDate,
+                    new_start_date: contract.newStartDate,
+                    new_end_date: contract.newEndDate,
+                    coordinates: contract.coordinates,
+                    map_url: contract.mapUrl,
+                    file_name: contract.fileName
+                });
+                console.log('✅ Saved to Supabase:', contract.contractNumber);
+            } catch (e) {
+                console.error('❌ Error saving:', e);
+                saveToLocalStorage();
+            }
+        }
+
+        async function deleteFromSupabase(contractNumber) {
+            if (!supabaseReady || !supabase) return;
+            try {
+                await supabase.from('contracts').delete().eq('contract_number', contractNumber);
+                console.log('✅ Deleted from Supabase:', contractNumber);
+            } catch (e) {
+                console.error('❌ Error deleting:', e);
+            }
+        }
+
+        function subscribeToChanges() {
+            if (!supabaseReady || !supabase) return;
+            try {
+                supabase
+                    .channel('contracts')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'contracts' }, 
+                        (payload) => {
+                            console.log('📡 Real-time update:', payload);
+                            loadContractsFromSupabase();
+                        })
+                    .subscribe();
+            } catch (e) {
+                console.error('❌ Subscribe error:', e);
+            }
+        }
+
         function saveToLocalStorage() {
             if (!cloudApplying) {
                 const now = Date.now();
@@ -8017,6 +8121,16 @@ document.getElementById("reportModal").style.display="block";
                 });
             }
             localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
+            // حفظ على Supabase أيضاً (إن كانت مفعّلة)
+            try {
+                if (supabaseReady && supabase && (allContracts || []).length > 0) {
+                    (allContracts || []).forEach(function(c) {
+                        if (c && c.contractNumber) {
+                            saveToSupabase(c).catch(e => console.error('Error saving to Supabase:', e));
+                        }
+                    });
+                }
+            } catch (e) {}
             // مزامنة للسحابة (إن كانت مفعّلة وليست تطبيقاً قادماً من السحابة)
             try {
                 if (!cloudApplying && typeof syncAllContractsToCloud === 'function') syncAllContractsToCloud();
@@ -8447,55 +8561,26 @@ document.getElementById("reportModal").style.display="block";
         })();
     </script>
 
-    <!-- Firebase Realtime Database - مزامنة متكاملة بين الأجهزة -->
     <script>
-        // ⚠️ استبدل القيم أدناه بـ Firebase Config من لوحة التحكم
-        const firebaseConfig = {
-            apiKey: "AIzaSyGo3tZCAq0zRCmQUkECKXFZgzZDm7o0EP8",
-            authDomain: "balady-contracts-a1b2c-ddc06.firebaseapp.com",
-            databaseURL: "https://balady-contracts-a1b2c-ddc06-default-rtdb.firebaseio.com",
-            projectId: "balady-contracts-a1b2c-ddc06",
-            storageBucket: "balady-contracts-a1b2c-ddc06.firebasestorage.app",
-            messagingSenderId: "1023995646709",
-            appId: "1:1023995646709:web:be2f45efc71a184b43abbc",
-            measurementId: "G-H9Y5HM68V9"
-        };
 
-        let firebaseInitialized = false;
-        let cloudApplying = false;      // يمنع حلقة المزامنة عند استقبال تحديث من السحابة
-        let cloudSyncTimer = null;      // تجميع الحفظ السحابي لتقليل الطلبات
-        let cloudReady = false;
-
-        function isFirebaseConfigured() {
-            const id = String(firebaseConfig.projectId || '');
-            const key = String(firebaseConfig.apiKey || '');
-            return id && !id.includes('project-id') && key && !key.includes('YOUR_API');
-        }
+        let cloudApplying = false; // Disabled}
 
         function getCloudDb() {
-            if (!firebaseInitialized || !isFirebaseConfigured()) return null;
-            try { return firebase.database(); } catch (e) { return null; }
         }
 
         function sanitizeContractKey(num) {
             return String(num || '').replace(/[.#$\[\]\/]/g, '_');
         }
 
-        function initializeFirebase() {
-            if (firebaseInitialized) return firebaseInitialized;
-            if (!isFirebaseConfigured()) {
-                console.info('Firebase غير مضبوط بعد — النظام يعمل محلياً فقط');
+        // Firebase removed
+        // Firebase removed
                 return false;
             }
             try {
-                if (!firebase.apps || !firebase.apps.length) {
-                    firebase.initializeApp(firebaseConfig);
+        // Firebase removed
                 }
-                firebaseInitialized = true;
-                console.log('✓ Firebase جاهز للمزامنة');
                 return true;
             } catch (error) {
-                console.warn('فشل تهيئة Firebase:', error.message);
                 return false;
             }
         }
@@ -8516,17 +8601,7 @@ document.getElementById("reportModal").style.display="block";
         }
 
         // مزامنة العقود واحداً واحداً (لا تمسح عقود الزملاء)
-        function syncAllContractsToCloud() {
-            if (!getCloudDb() || cloudApplying) return;
-            if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
-            cloudSyncTimer = setTimeout(function() {
-                const db = getCloudDb();
-                if (!db || cloudApplying) return;
-                let n = 0;
-                (allContracts || []).forEach(function(c) {
-                    if (!c || !c.contractNumber) return;
-                    const id = sanitizeContractKey(c.contractNumber);
-                    const payload = Object.assign({}, c, {
+        function syncAllContractsToCloud() { /* Disabled */ }, c, {
                         updatedAt: c.updatedAt || Date.now(),
                         syncedAt: Date.now()
                     });
@@ -8690,7 +8765,6 @@ document.getElementById("reportModal").style.display="block";
         }
 
         function startCloudSync() {
-            if (!initializeFirebase()) return;
             listenForCloudChanges();
             // بعد الاتصال: ارفع النسخة المحلية مرة واحدة إذا كانت السحابة فارغة
             setTimeout(function() {
