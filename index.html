@@ -1697,8 +1697,13 @@
 
             // —— تحديث إجباري عند الضغط على «تحديث» للحقول المستخرجة من PDF ——
             if (forceUpdate) {
-                if (!isEmpty(contract.customerName) && contract.customerName !== 'غير معروف') {
-                    existing.customerName = contract.customerName;
+                // لا تستبدل اسم عميل صالح بعنوان من ترويسة PDF (مثل المركز الوطني للنفايات)
+                if (!isEmpty(contract.customerName) && contract.customerName !== 'غير معروف'
+                    && !(typeof isBadCustomerName === 'function' && isBadCustomerName(contract.customerName))) {
+                    if (isEmpty(existing.customerName) || (typeof isBadCustomerName === 'function' && isBadCustomerName(existing.customerName))) {
+                        existing.customerName = contract.customerName;
+                    }
+                    // إن كان الاسم الحالي صالحاً: لا تمسّه أثناء التحديث
                 }
                 if (!isEmpty(contract.commercialRegistry)) existing.commercialRegistry = contract.commercialRegistry;
                 if (!isEmpty(contract.commercialActLicense)) existing.commercialActLicense = contract.commercialActLicense;
@@ -1878,7 +1883,11 @@
                              'commercialActLicense','totalArea','binSize','coordinates','mapUrl',
                              'oldStartDate','oldEndDate','customerName','commercialRegistry','phone','email'].forEach(function(k) {
                                 if (parsed2[k] && (!parsed[k] || parsed[k] === '' || parsed[k] === 'غير معروف')) {
-                                    parsed[k] = parsed2[k];
+                                    if (k === 'customerName' && typeof isBadCustomerName === 'function' && isBadCustomerName(parsed2[k])) {
+                                        /* تجاهل أسماء ترويسة PDF */
+                                    } else {
+                                        parsed[k] = parsed2[k];
+                                    }
                                 } else if (k === 'isicClassification' && parsed2[k] && String(parsed2[k]).length > String(parsed[k]||'').length) {
                                     parsed[k] = parsed2[k];
                                 } else if ((k === 'district' || k === 'location') && parsed2[k] && !parsed.district && !parsed.location) {
@@ -2522,8 +2531,8 @@
                                                 if (badOld || String(nv).length >= String(ov).length) existing[k] = nv;
                                             } else if (k === 'district' || k === 'location') {
                                                 if (empty || !isValidDistrictName(ov)) existing[k] = nv;
-                                            } else if (k === 'customerName' && (empty || ov === 'غير معروف')) {
-                                                existing[k] = nv;
+                                            } else if (k === 'customerName' && (empty || ov === 'غير معروف' || (typeof isBadCustomerName === 'function' && isBadCustomerName(ov)))) {
+                                                if (!(typeof isBadCustomerName === 'function' && isBadCustomerName(nv))) existing[k] = nv;
                                             } else if (k === 'quantity') {
                                                 // حدّث العدد دائماً من إعادة الاستخراج إذا تغيّر
                                                 const nq = parseInt(nv, 10), oq = parseInt(ov, 10);
@@ -2987,6 +2996,10 @@
             if (/تصنيف|آيزك|الأيزك|الآيزك|\bISIC\b|Classification/i.test(n)) return true;
             if (/^الحي$|^البلدية$|بيانات\s*المنتج|بيانات\s*الناقل|Producer\s*Commercial|Commercial\s*Name/i.test(n)) return true;
             if (/عقد\s*جمع\s*النفايات|Waste\s*Collection/i.test(n)) return true;
+            // عناوين رسمية تظهر في ترويسة PDF بلدي وليست اسم عميل
+            if (/المركز\s*الوطني\s*(لـ)?(إدارة\s*)?النفايات|National\s*Waste|MWAN|منصة\s*بلدي|بوابة\s*بلدي|وزارة\s*الشؤون\s*البلدية|أمانة\s*منطقة|الهيئة\s*السعودية/i.test(n)) return true;
+            if (/^(الأمانة|البلدية|الأمانه)\s*$/i.test(n)) return true;
+            if (/^الأمانة\s*MWAN/i.test(n) || /MWAN\s*الأمانة/i.test(n)) return true;
             return false;
         }
 
@@ -8084,6 +8097,8 @@ document.getElementById("reportModal").style.display="block";
                         contractNumber: row.contract_number,
                         customerName: row.customer_name,
                         commercialRegistry: row.commercial_registry,
+                        commercialActLicense: row.commercial_act_license,
+                        isicClassification: row.isic_classification,
                         phone: row.phone,
                         email: row.email,
                         district: row.district,
@@ -8099,7 +8114,8 @@ document.getElementById("reportModal").style.display="block";
                         newEndDate: row.new_end_date,
                         coordinates: row.coordinates,
                         mapUrl: row.map_url,
-                        fileName: row.file_name
+                        fileName: row.file_name,
+                        hasPdf: !!row.has_pdf
                     }));
                     console.log('✅ Loaded', data.length, 'contracts from Supabase');
                     applyFilters(true);
@@ -8119,6 +8135,8 @@ document.getElementById("reportModal").style.display="block";
                     contract_number: contract.contractNumber,
                     customer_name: contract.customerName,
                     commercial_registry: contract.commercialRegistry,
+                    commercial_act_license: contract.commercialActLicense || null,
+                    isic_classification: contract.isicClassification || null,
                     phone: contract.phone,
                     email: contract.email,
                     district: contract.district,
@@ -8128,14 +8146,16 @@ document.getElementById("reportModal").style.display="block";
                     quantity: contract.quantity,
                     price_per_unit: contract.pricePerUnit,
                     total_area: contract.totalArea,
-                    old_start_date: contract.oldStartDate,
-                    old_end_date: contract.oldEndDate,
-                    new_start_date: contract.newStartDate,
-                    new_end_date: contract.newEndDate,
+                    old_start_date: contract.oldStartDate || null,
+                    old_end_date: contract.oldEndDate || null,
+                    new_start_date: contract.newStartDate || null,
+                    new_end_date: contract.newEndDate || null,
                     coordinates: contract.coordinates,
                     map_url: contract.mapUrl,
-                    file_name: contract.fileName
-                });
+                    file_name: contract.fileName,
+                    has_pdf: !!contract.hasPdf,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'contract_number' });
                 console.log('✅ Saved to Supabase:', contract.contractNumber);
             } catch (e) {
                 console.error('❌ Error saving:', e);
