@@ -1455,62 +1455,130 @@
         }
 
         async function savePdfBlob(contractNumber, blob, fileName) {
+            const num = String(contractNumber || '').trim();
+            if (!num || !blob) return false;
+            const fname = fileName || (num + '.pdf');
+            let localOk = false;
+            // 1) حفظ محلي في IndexedDB (سريع للجهاز الحالي)
             try {
-                // حفظ محلي في IndexedDB
                 const db = await openPdfDb();
-                return new Promise((resolve, reject) => {
+                await new Promise((resolve, reject) => {
                     const tx = db.transaction(PDF_STORE, 'readwrite');
                     tx.objectStore(PDF_STORE).put({
-                        contractNumber: String(contractNumber),
+                        contractNumber: num,
                         blob: blob,
-                        fileName: fileName || (contractNumber + '.pdf'),
+                        fileName: fname,
                         savedAt: new Date().toISOString()
                     });
                     tx.oncomplete = () => resolve(true);
                     tx.onerror = () => reject(tx.error);
                 });
+                localOk = true;
             } catch (e) {
-                console.warn('savePdfBlob failed', e);
-                return false;
+                console.warn('savePdfBlob local failed', e);
             }
+            // 2) رفع إلى Supabase Storage (مشترك بين الأجهزة)
+            try {
+                if (typeof supabase !== 'undefined' && supabase && supabaseReady) {
+                    const safeKey = num.replace(/[\/\\?#%]+/g, '_');
+                    const path = safeKey + '.pdf';
+                    const file = blob instanceof File ? blob : new File([blob], fname, { type: 'application/pdf' });
+                    const { error } = await supabase.storage
+                        .from('contract-pdfs')
+                        .upload(path, file, { upsert: true, contentType: 'application/pdf', cacheControl: '3600' });
+                    if (error) {
+                        console.warn('Supabase PDF upload failed:', error.message || error);
+                    } else {
+                        console.log('✓ تم رفع PDF للسحابة:', path);
+                    }
+                }
+            } catch (e) {
+                console.warn('savePdfBlob cloud failed', e);
+            }
+            return localOk;
         }
 
         async function getPdfRecord(contractNumber) {
             try {
-                const n = String(contractNumber || '');
+                const n = String(contractNumber || '').trim();
+                if (!n) return null;
 
-                // التحميل من IndexedDB
-                const db = await openPdfDb();
-                const keys = [];
-                if (n) keys.push(n);
-                // عقود الدغل: جرّب بالمعرّف الخام وبدون/مع البادئة DG-
-                if (/^DG-/i.test(n)) keys.push(n.replace(/^DG-/i, ''));
-                else if (/^\d{2,8}$/.test(n)) keys.push('DG-' + n);
-                const c = (typeof allContracts !== 'undefined')
-                    ? allContracts.find(function(x) { return String(x.contractNumber) === n; })
-                    : null;
-                if (c) {
-                    if (c.dagalRawNumber) {
-                        keys.push(String(c.dagalRawNumber));
-                        keys.push('DG-' + c.dagalRawNumber);
+                // أ) من IndexedDB المحلي
+                try {
+                    const db = await openPdfDb();
+                    const keys = [];
+                    if (n) keys.push(n);
+                    if (/^DG-/i.test(n)) keys.push(n.replace(/^DG-/i, ''));
+                    else if (/^\d{2,8}$/.test(n)) keys.push('DG-' + n);
+                    const c = (typeof allContracts !== 'undefined')
+                        ? allContracts.find(function(x) { return String(x.contractNumber) === n; })
+                        : null;
+                    if (c) {
+                        if (c.dagalRawNumber) {
+                            keys.push(String(c.dagalRawNumber));
+                            keys.push('DG-' + c.dagalRawNumber);
+                        }
+                        if (c.fileName) keys.push(c.fileName);
                     }
-                    if (c.fileName) keys.push(c.fileName);
-                }
-                // إزالة التكرار مع الحفاظ على الترتيب
-                const seen = {};
-                const uniq = [];
-                keys.forEach(function(k) {
-                    if (k && !seen[k]) { seen[k] = 1; uniq.push(k); }
-                });
-                for (let i = 0; i < uniq.length; i++) {
-                    const key = uniq[i];
-                    const rec = await new Promise(function(resolve, reject) {
-                        const tx = db.transaction(PDF_STORE, 'readonly');
-                        const req = tx.objectStore(PDF_STORE).get(String(key));
-                        req.onsuccess = function() { resolve(req.result || null); };
-                        req.onerror = function() { reject(req.error); };
+                    const seen = {};
+                    const uniq = [];
+                    keys.forEach(function(k) {
+                        if (k && !seen[k]) { seen[k] = 1; uniq.push(k); }
                     });
-                    if (rec && rec.blob) return rec;
+                    for (let i = 0; i < uniq.length; i++) {
+                        const key = uniq[i];
+                        const rec = await new Promise(function(resolve, reject) {
+                            const tx = db.transaction(PDF_STORE, 'readonly');
+                            const req = tx.objectStore(PDF_STORE).get(String(key));
+                            req.onsuccess = function() { resolve(req.result || null); };
+                            req.onerror = function() { reject(req.error); };
+                        });
+                        if (rec && rec.blob) return rec;
+                    }
+                } catch (localErr) {
+                    console.warn('getPdfRecord local failed', localErr);
+                }
+
+                // ب) من Supabase Storage (للجوال والأجهزة الأخرى)
+                if (typeof supabase !== 'undefined' && supabase && supabaseReady) {
+                    const candidates = [n];
+                    if (/^DG-/i.test(n)) candidates.push(n.replace(/^DG-/i, ''));
+                    else if (/^\d{2,8}$/.test(n)) candidates.push('DG-' + n);
+                    for (let i = 0; i < candidates.length; i++) {
+                        const safeKey = String(candidates[i]).replace(/[\/\\?#%]+/g, '_');
+                        const path = safeKey + '.pdf';
+                        try {
+                            const { data, error } = await supabase.storage
+                                .from('contract-pdfs')
+                                .download(path);
+                            if (!error && data) {
+                                // خزّن محلياً للمرات القادمة
+                                try {
+                                    const db = await openPdfDb();
+                                    await new Promise(function(resolve) {
+                                        const tx = db.transaction(PDF_STORE, 'readwrite');
+                                        tx.objectStore(PDF_STORE).put({
+                                            contractNumber: n,
+                                            blob: data,
+                                            fileName: path,
+                                            savedAt: new Date().toISOString(),
+                                            fromCloud: true
+                                        });
+                                        tx.oncomplete = function() { resolve(true); };
+                                        tx.onerror = function() { resolve(false); };
+                                    });
+                                } catch (cacheErr) { /* ignore */ }
+                                return {
+                                    contractNumber: n,
+                                    blob: data,
+                                    fileName: path,
+                                    fromCloud: true
+                                };
+                            }
+                        } catch (dlErr) {
+                            console.warn('Supabase PDF download failed for', path, dlErr);
+                        }
+                    }
                 }
                 return null;
             } catch (e) {
@@ -1520,15 +1588,27 @@
         }
 
         async function deletePdfBlob(contractNumber) {
+            const num = String(contractNumber || '').trim();
+            let ok = false;
             try {
                 const db = await openPdfDb();
-                return new Promise((resolve) => {
+                await new Promise((resolve) => {
                     const tx = db.transaction(PDF_STORE, 'readwrite');
-                    tx.objectStore(PDF_STORE).delete(String(contractNumber));
+                    tx.objectStore(PDF_STORE).delete(num);
                     tx.oncomplete = () => resolve(true);
                     tx.onerror = () => resolve(false);
                 });
-            } catch (e) { return false; }
+                ok = true;
+            } catch (e) { /* ignore */ }
+            try {
+                if (typeof supabase !== 'undefined' && supabase && supabaseReady && num) {
+                    const safeKey = num.replace(/[\/\\?#%]+/g, '_');
+                    await supabase.storage.from('contract-pdfs').remove([safeKey + '.pdf']);
+                }
+            } catch (e) {
+                console.warn('deletePdfBlob cloud failed', e);
+            }
+            return ok;
         }
 
         async function openSavedPdf(contractNumber) {
