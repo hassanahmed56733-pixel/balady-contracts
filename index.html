@@ -8091,9 +8091,12 @@ document.getElementById("reportModal").style.display="block";
             try {
                 const { data, error } = await supabase.from('contracts').select('*');
                 if (error) throw error;
-                
-                if (data && data.length > 0) {
-                    allContracts = data.map(row => ({
+
+                function emptyVal(v) {
+                    return v === undefined || v === null || v === '' || v === '-' || v === 'غير معروف';
+                }
+                function fromRow(row) {
+                    return {
                         contractNumber: row.contract_number,
                         customerName: row.customer_name,
                         commercialRegistry: row.commercial_registry,
@@ -8115,10 +8118,80 @@ document.getElementById("reportModal").style.display="block";
                         coordinates: row.coordinates,
                         mapUrl: row.map_url,
                         fileName: row.file_name,
-                        hasPdf: !!row.has_pdf
-                    }));
-                    console.log('✅ Loaded', data.length, 'contracts from Supabase');
+                        hasPdf: !!row.has_pdf,
+                        updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : 0
+                    };
+                }
+                // دمج ذكي: لا تمسح حقولاً محلية ممتلئة بقيم سحابية فارغة (مثل الآيزك)
+                function mergeContract(local, remote) {
+                    if (!local) return remote;
+                    if (!remote) return local;
+                    const out = Object.assign({}, local);
+                    const keys = [
+                        'customerName','commercialRegistry','commercialActLicense','isicClassification',
+                        'phone','email','district','location','municipality','binSize','quantity',
+                        'pricePerUnit','totalArea','oldStartDate','oldEndDate','newStartDate','newEndDate',
+                        'coordinates','mapUrl','fileName','hasPdf'
+                    ];
+                    keys.forEach(function(k) {
+                        const lv = local[k], rv = remote[k];
+                        if (emptyVal(lv) && !emptyVal(rv)) out[k] = rv;
+                        else if (!emptyVal(lv) && emptyVal(rv)) out[k] = lv;
+                        else if (!emptyVal(rv)) {
+                            // الاثنان ممتلئان: فضّل الأحدث إن وُجد، وإلا أبقِ المحلي للآيزك/الاسم
+                            const lt = Number(local.updatedAt) || 0;
+                            const rt = Number(remote.updatedAt) || 0;
+                            if (rt > lt) out[k] = rv;
+                            else out[k] = lv;
+                        }
+                    });
+                    out.contractNumber = local.contractNumber || remote.contractNumber;
+                    out.updatedAt = Math.max(Number(local.updatedAt) || 0, Number(remote.updatedAt) || 0) || Date.now();
+                    return out;
+                }
+
+                const localMap = {};
+                (allContracts || []).forEach(function(c) {
+                    if (c && c.contractNumber) localMap[String(c.contractNumber)] = c;
+                });
+
+                const merged = [];
+                const seen = {};
+                if (data && data.length > 0) {
+                    data.forEach(function(row) {
+                        if (!row || !row.contract_number) return;
+                        const id = String(row.contract_number);
+                        seen[id] = true;
+                        const remote = fromRow(row);
+                        merged.push(mergeContract(localMap[id], remote));
+                    });
+                }
+                // عقود محلية لم تصل للسحابة بعد
+                Object.keys(localMap).forEach(function(id) {
+                    if (!seen[id]) merged.push(localMap[id]);
+                });
+
+                if (merged.length > 0) {
+                    allContracts = typeof sortContractsByDate === 'function' ? sortContractsByDate(merged) : merged;
+                    localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
+                    console.log('✅ Merged', merged.length, 'contracts from Supabase + local');
                     applyFilters(true);
+                    // ارفع للسحابة أي حقول كانت ناقصة هناك (مثل الآيزك)
+                    setTimeout(function() {
+                        try {
+                            (allContracts || []).forEach(function(c) {
+                                if (c && c.contractNumber && c.isicClassification) {
+                                    saveToSupabase(c).catch(function() {});
+                                }
+                            });
+                        } catch (eUp) {}
+                    }, 1500);
+                } else if ((!data || !data.length) && allContracts && allContracts.length) {
+                    // السحابة فارغة — ارفع المحلي
+                    console.log('☁️ السحابة فارغة — رفع البيانات المحلية...');
+                    (allContracts || []).forEach(function(c) {
+                        if (c && c.contractNumber) saveToSupabase(c).catch(function() {});
+                    });
                 }
             } catch (e) {
                 console.error('❌ Error loading from Supabase:', e);
