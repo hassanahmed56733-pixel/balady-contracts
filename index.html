@@ -692,8 +692,7 @@
         .header { position: relative; }
 
     </style>
-    
-        // <!-- Firebase Scripts للبيانات المشتركة السحابية -->
+
     <!-- Supabase Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0/dist/umd/supabase.min.js"></script>
 </head>
@@ -1457,20 +1456,7 @@
 
         async function savePdfBlob(contractNumber, blob, fileName) {
             try {
-        // // ✅ حفظ في Firebase Realtime Database (للمشاركة السحابية)
-        // Firebase removed
-                                console.log('✓ تم حفظ PDF في السحابة:', contractNumber);
-                            }).catch(err => {
-                                console.warn('Cloud PDF save failed:', err);
-                            });
-                        };
-                        reader.readAsDataURL(blob);
-                    } catch (cloudErr) {
-                        console.warn('Cloud PDF save failed:', cloudErr);
-                    }
-                }
-                
-                // ✅ حفظ محلي في IndexedDB (نسخة احتياطية)
+                // حفظ محلي في IndexedDB
                 const db = await openPdfDb();
                 return new Promise((resolve, reject) => {
                     const tx = db.transaction(PDF_STORE, 'readwrite');
@@ -1492,15 +1478,8 @@
         async function getPdfRecord(contractNumber) {
             try {
                 const n = String(contractNumber || '');
-                
-                            return { blob: blob, contractNumber: n, fileName: data.fileName, fromCloud: true };
-                        }
-                    } catch (cloudErr) {
-                        console.log('PDF not in cloud, trying local storage:', n);
-                    }
-                }
-                
-                // ✅ التحميل من IndexedDB كبديل محلي
+
+                // التحميل من IndexedDB
                 const db = await openPdfDb();
                 const keys = [];
                 if (n) keys.push(n);
@@ -8559,229 +8538,21 @@ document.getElementById("reportModal").style.display="block";
     </script>
 
     <script>
-
-        let cloudApplying = false; // Disabled}
-
-        function getCloudDb() {
-        }
-
+        // Cloud sync stubs (Firebase removed — Supabase can be wired later)
+        let cloudApplying = false;
+        function getCloudDb() { return null; }
         function sanitizeContractKey(num) {
             return String(num || '').replace(/[.#$\[\]\/]/g, '_');
         }
-
-        // Firebase removed
-        // Firebase removed
-                return false;
-            }
-            try {
-        // Firebase removed
-                }
-                return true;
-            } catch (error) {
-                return false;
-            }
-        }
-
-        // حفظ عقد واحد في السحابة
-        function saveContractToCloud(contract) {
-            const db = getCloudDb();
-            if (!db || !contract || cloudApplying) return;
-            const id = sanitizeContractKey(contract.contractNumber);
-            if (!id) return;
-            const payload = Object.assign({}, contract, {
-                updatedAt: contract.updatedAt || Date.now(),
-                syncedAt: Date.now()
-            });
-            db.ref('contracts/' + id).set(payload)
-                .then(function() { /* ok */ })
-                .catch(function(err) { console.error('خطأ حفظ سحابي:', err); });
-        }
-
-        // مزامنة العقود واحداً واحداً (لا تمسح عقود الزملاء)
-        function syncAllContractsToCloud() { /* Disabled */ }, c, {
-                        updatedAt: c.updatedAt || Date.now(),
-                        syncedAt: Date.now()
-                    });
-                    db.ref('contracts/' + id).update(payload);
-                    n++;
-                });
-                if (n) console.log('✓ مزامنة ' + n + ' عقد إلى السحابة');
-            }, 600);
-        }
-
-        function deleteContractFromCloud(contractId) {
-            const db = getCloudDb();
-            if (!db || cloudApplying) return;
-            const id = sanitizeContractKey(contractId);
-            if (!id) return;
-            db.ref('contracts/' + id).remove()
-                .then(function() { console.log('✓ حذف من السحابة:', id); })
-                .catch(function(err) { console.error('خطأ حذف سحابي:', err); });
-        }
-
-        function clearAllContractsFromCloud() {
-            const db = getCloudDb();
-            if (!db) return;
-            db.ref('contracts').remove()
-                .then(function() { console.log('✓ تم مسح كل العقود من السحابة'); })
-                .catch(function(err) { console.error('خطأ مسح سحابي:', err); });
-        }
-
-        // السحابة مصدر الحقيقة بعد الاتصال — كل الأجهزة ترى نفس العقود
-        function applyCloudContracts(cloudMap) {
-            cloudApplying = true;
-            try {
-                // خريطة محلية للمقارنة (تفضيل التعديل المحلي الأحدث)
-                const localMap = {};
-                (allContracts || []).forEach(function(x) {
-                    if (x && x.contractNumber) localMap[String(x.contractNumber)] = x;
-                });
-                const list = [];
-                const seen = {};
-                if (cloudMap && typeof cloudMap === 'object') {
-                    Object.keys(cloudMap).forEach(function(k) {
-                        const c = cloudMap[k];
-                        if (c && typeof c === 'object' && c.contractNumber) {
-                            const id = String(c.contractNumber);
-                            seen[id] = true;
-                            // قفل تحديث محلي → أبقِ النسخة المحلية
-                            if (window.__updateLock && window.__updateLock[c.contractNumber]) {
-                                const existing = localMap[id];
-                                if (existing) { list.push(existing); return; }
-                            }
-                            // إن كانت النسخة المحلية أحدث أو معدّلة يدوياً مؤخراً → أبقِها (يمنع اختفاء الصف عند صدى السحابة)
-                            const local = localMap[id];
-                            if (local) {
-                                const lt = Number(local.updatedAt) || 0;
-                                const ct = Number(c.updatedAt) || 0;
-                                if (lt > ct) { list.push(local); return; }
-                                if (local.manuallyEdited && lt >= ct) { list.push(local); return; }
-                            }
-                            list.push(c);
-                        }
-                    });
-                }
-                // عقود محلية فقط (لم تصل للسحابة بعد) — لا تُحذف من الجدول
-                Object.keys(localMap).forEach(function(id) {
-                    if (!seen[id]) list.push(localMap[id]);
-                });
-                const savedPageCloud = (typeof currentPage !== 'undefined') ? currentPage : 1;
-                allContracts = typeof sortContractsByDate === 'function' ? sortContractsByDate(list) : list;
-                // لا تكتب localStorage هنا إن كنا في حارس كتابة محلية (تجنب الكتابة فوق التعديل)
-                if (!(window.__localWriteUntil && Date.now() < window.__localWriteUntil)) {
-                    localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
-                }
-                if (typeof applyFilters === 'function') applyFilters(true);
-                else if (typeof renderTable === 'function') renderTable(allContracts);
-                if (typeof currentPage !== 'undefined') {
-                    currentPage = savedPageCloud;
-                    if (typeof renderTable === 'function' && typeof filteredContracts !== 'undefined') renderTable(filteredContracts);
-                }
-                if (!cloudReady) {
-                    cloudReady = true;
-                    if (typeof showAlert === 'function') {
-                        showAlert('تمت مزامنة البيانات من السحابة (' + allContracts.length + ' عقد)', 'success');
-                    }
-                }
-            } catch (e) {
-                console.error('خطأ تطبيق بيانات السحابة:', e);
-            } finally {
-                setTimeout(function() { cloudApplying = false; }, 400);
-            }
-        }
-
-        function upsertLocalFromCloud(contract) {
-            if (!contract || !contract.contractNumber) return;
-            // تحقق من قفل التحديث - لا تطبق البيانات إذا كان العقد قيد التحديث المحلي
-            if (window.__updateLock && window.__updateLock[contract.contractNumber]) {
-                console.log('تم تجاهل تحديث سحابي للعقد ' + contract.contractNumber + ' (قيد التحديث المحلي)');
-                return;
-            }
-            // تفضيل النسخة المحلية الأحدث
-            const local = (allContracts || []).find(function(x) {
-                return String(x.contractNumber) === String(contract.contractNumber);
-            });
-            if (local && (Number(local.updatedAt) || 0) > (Number(contract.updatedAt) || 0)) {
-                return;
-            }
-            cloudApplying = true;
-            try {
-                const idx = allContracts.findIndex(function(x) {
-                    return String(x.contractNumber) === String(contract.contractNumber);
-                });
-                if (idx >= 0) allContracts[idx] = contract;
-                else allContracts.push(contract);
-                const savedPageUp = (typeof currentPage !== 'undefined') ? currentPage : 1;
-                allContracts = typeof sortContractsByDate === 'function' ? sortContractsByDate(allContracts) : allContracts;
-                localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
-                if (typeof applyFilters === 'function') applyFilters(true);
-                if (typeof currentPage !== 'undefined') {
-                    currentPage = savedPageUp;
-                    if (typeof renderTable === 'function' && typeof filteredContracts !== 'undefined') renderTable(filteredContracts);
-                }
-            } catch (e) {
-                console.error(e);
-            } finally {
-                setTimeout(function() { cloudApplying = false; }, 200);
-            }
-        }
-
-        function removeLocalFromCloud(contractNumber) {
-            if (!contractNumber) return;
-            cloudApplying = true;
-            try {
-                const savedPageRm = (typeof currentPage !== 'undefined') ? currentPage : 1;
-                allContracts = allContracts.filter(function(x) {
-                    return String(x.contractNumber) !== String(contractNumber);
-                });
-                localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
-                if (typeof applyFilters === 'function') applyFilters(true);
-                if (typeof currentPage !== 'undefined') {
-                    currentPage = savedPageRm;
-                    if (typeof renderTable === 'function' && typeof filteredContracts !== 'undefined') renderTable(filteredContracts);
-                }
-            } catch (e) {
-                console.error(e);
-            } finally {
-                setTimeout(function() { cloudApplying = false; }, 200);
-            }
-        }
-
-        // استماع فوري للتغييرات من الزملاء
-        function listenForCloudChanges() {
-            const db = getCloudDb();
-            if (!db) return;
-            const ref = db.ref('contracts');
-
-            // التحميل الأول + أي استبدال كامل
-            ref.on('value', function(snapshot) {
-                if (cloudApplying) return;
-                const val = snapshot.val();
-                applyCloudContracts(val || {});
-            });
-        }
-
-        function startCloudSync() {
-            listenForCloudChanges();
-            // بعد الاتصال: ارفع النسخة المحلية مرة واحدة إذا كانت السحابة فارغة
-            setTimeout(function() {
-                const db = getCloudDb();
-                if (!db) return;
-                db.ref('contracts').once('value').then(function(snap) {
-                    const val = snap.val();
-                    const empty = !val || !Object.keys(val).length;
-                    if (empty && allContracts && allContracts.length) {
-                        console.log('السحابة فارغة — رفع البيانات المحلية...');
-                        syncAllContractsToCloud();
-                    }
-                });
-            }, 1500);
-        }
-
-        // بدء المزامنة بعد تحميل الصفحة
-        setTimeout(function() {
-            try { startCloudSync(); } catch (e) { console.warn(e); }
-        }, 1200);
+        function saveContractToCloud(contract) { /* disabled */ }
+        function syncAllContractsToCloud() { /* disabled */ }
+        function deleteContractFromCloud(contractId) { /* disabled */ }
+        function clearAllContractsFromCloud() { /* disabled */ }
+        function applyCloudContracts(cloudMap) { /* disabled */ }
+        function upsertLocalFromCloud(contract) { /* disabled */ }
+        function removeLocalFromCloud(contractNumber) { /* disabled */ }
+        function listenForCloudChanges() { /* disabled */ }
+        function startCloudSync() { /* disabled */ }
     </script>
 
     <!-- تأكيد منع كليك يمين بعد تحميل كل السكربتات -->
