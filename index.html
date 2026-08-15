@@ -7488,9 +7488,8 @@ function saveEmail(contractNumber, email) {
                 body { background:#f1f5f9; padding:12px; font-family: 'Segoe UI', Tahoma, sans-serif; }
                 .report-container { background:white; max-width:900px; margin:0 auto; }
                 @media print { body, body * { visibility: visible !important; } }
-                </style>    <!-- Supabase Library -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0/dist/umd/supabase.min.js"></script>
-</head><body>
+                </style>
+                </head><body>
                 <div style="text-align:center;margin-bottom:10px;">
                   <button onclick="window.print()" style="padding:8px 16px;background:#0f766e;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:700;">🖨️ طباعة</button>
                   <button onclick="window.close()" style="padding:8px 16px;background:#dc2626;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:700;margin-right:8px;">إغلاق</button>
@@ -7541,9 +7540,7 @@ function saveEmail(contractNumber, email) {
                     ' html,body{height:auto!important;overflow:hidden!important;margin:0!important;padding:0!important}' +
                     ' .report-container{page-break-inside:avoid!important;page-break-after:avoid!important;break-inside:avoid!important}' +
                     ' .frp-bar,[data-drag],[data-print],[data-close]{display:none!important} }' +
-                    '</style>    <!-- Supabase Library -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0/dist/umd/supabase.min.js"></script>
-</head><body>' +
+                    '</style></head><body>' +
                     panel.querySelector('.frp-body').innerHTML + '</body></html>');
                 w.document.close();
                 setTimeout(function(){ try { w.print(); } catch(e) {} }, 400);
