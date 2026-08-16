@@ -30,7 +30,7 @@
             background: white;
             border-radius: 10px;
             box-shadow: 0 12px 40px rgba(0,0,0,0.3);
-            overflow: hidden;
+            overflow: visible;
         }
         .header {
             background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);
@@ -144,7 +144,19 @@
         .dot-green { background: #16a34a; }
         .dot-yellow { background: #eab308; }
         .dot-red { background: #dc2626; }
-        .table-wrapper { padding: 6px 8px; overflow-x: auto; }
+        .table-wrapper {
+            padding: 6px 8px;
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: min(70vh, 900px);
+            -webkit-overflow-scrolling: touch;
+        }
+        #contractsTable thead th {
+            position: sticky;
+            top: 0;
+            z-index: 12;
+            background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
+        }
         table { width: 100%; border-collapse: collapse; font-size: 0.72em; }
         thead {
             background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
@@ -186,10 +198,11 @@
             align-items: center;
         }
         #contractsTable .btn-small {
-            padding: 3px 6px !important;
-            font-size: 0.72em !important;
+            padding: 2px 5px !important;
+            font-size: 0.68em !important;
             white-space: nowrap;
         }
+        #contractsTable td { line-height: 1.25 !important; }
         #contractsTable a.mail-link {
             color: #0369a1; font-weight: 700; text-decoration: underline; font-size: 0.9em;
         }
@@ -1253,24 +1266,57 @@
         function askPassword(message, title) {
             return new Promise(function(resolve) {
                 _pwdResolve = resolve;
+                var modal = document.getElementById('passwordModal');
                 document.getElementById('passwordModalTitle').textContent = title || 'كلمة السر';
                 document.getElementById('passwordModalMsg').textContent = message || 'أدخل كلمة السر للمتابعة';
                 const inp = document.getElementById('passwordModalInput');
-                inp.value = '';
-                document.getElementById('passwordModal').style.display = 'block';
-                setTimeout(function() { inp.focus(); }, 80);
+                if (inp) {
+                    inp.value = '';
+                    // منع مدير كلمات مرور المتصفح من اعتراض الحقل
+                    try {
+                        inp.setAttribute('autocomplete', 'off');
+                        inp.setAttribute('type', 'text');
+                        inp.style.webkitTextSecurity = 'disc';
+                    } catch (eA) {}
+                }
+                if (modal) {
+                    modal.style.display = 'block';
+                    modal.style.zIndex = '99999';
+                }
+                setTimeout(function() {
+                    try {
+                        if (inp) {
+                            inp.readOnly = true; // يمنع اقتراح الحفظ عند التركيز
+                            inp.focus();
+                            setTimeout(function() { inp.readOnly = false; }, 50);
+                        }
+                    } catch (eF) {}
+                }, 100);
             });
         }
         function confirmPasswordModal() {
-            const v = (document.getElementById('passwordModalInput').value || '');
-            document.getElementById('passwordModal').style.display = 'none';
-            document.getElementById('passwordModalInput').value = '';
-            if (_pwdResolve) { const r = _pwdResolve; _pwdResolve = null; r(v); }
+            const inp = document.getElementById('passwordModalInput');
+            const v = (inp && inp.value != null) ? String(inp.value) : '';
+            const modal = document.getElementById('passwordModal');
+            if (modal) modal.style.display = 'none';
+            if (inp) inp.value = '';
+            // تأخير بسيط حتى يُغلق حوار المتصفح (إن ظهر) قبل متابعة التعديل
+            const r = _pwdResolve;
+            _pwdResolve = null;
+            if (r) {
+                setTimeout(function() { r(v); }, 30);
+            }
         }
         function cancelPasswordModal() {
-            document.getElementById('passwordModal').style.display = 'none';
-            document.getElementById('passwordModalInput').value = '';
-            if (_pwdResolve) { const r = _pwdResolve; _pwdResolve = null; r(null); }
+            const inp = document.getElementById('passwordModalInput');
+            const modal = document.getElementById('passwordModal');
+            if (modal) modal.style.display = 'none';
+            if (inp) inp.value = '';
+            const r = _pwdResolve;
+            _pwdResolve = null;
+            if (r) {
+                setTimeout(function() { r(null); }, 30);
+            }
         }
 
         // ===== إدارة أنواع الحاويات والأسعار =====
@@ -6733,6 +6779,8 @@ function saveEmail(contractNumber, email) {
             }
             
             console.log('✅ عقد وجد، جاري فتح النموذج...');
+            // تأخير قصير بعد حوار المتصفح (حفظ كلمة المرور) حتى لا يُلغى فتح النموذج
+            await new Promise(function(r) { setTimeout(r, 80); });
             const nd = calcNewDates(c.oldEndDate, c);
             
             // قائمة الحقول حسب الصفوف (كل صف = عمودين)
@@ -7465,6 +7513,44 @@ function saveEmail(contractNumber, email) {
             window.open(url, '_blank');
         }
 
+        // سجل العقود المحذوفة — يمنع عودتها من السحابة أو جهاز آخر لفترة
+        function getDeletedContractIds() {
+            try { return JSON.parse(localStorage.getItem('baladyDeletedContractsV1') || '{}') || {}; }
+            catch (e) { return {}; }
+        }
+        function markContractDeleted(num) {
+            const id = String(num || '').trim();
+            if (!id) return;
+            const map = getDeletedContractIds();
+            map[id] = Date.now();
+            // احتفظ بآخر 500 حذف فقط
+            const keys = Object.keys(map);
+            if (keys.length > 500) {
+                keys.sort(function(a, b) { return map[a] - map[b]; });
+                keys.slice(0, keys.length - 500).forEach(function(k) { delete map[k]; });
+            }
+            localStorage.setItem('baladyDeletedContractsV1', JSON.stringify(map));
+        }
+        function isContractDeleted(num) {
+            const id = String(num || '').trim();
+            if (!id) return false;
+            const map = getDeletedContractIds();
+            const t = map[id];
+            if (!t) return false;
+            // بعد 30 يوماً امسح العلامة
+            if (Date.now() - t > 30 * 24 * 3600 * 1000) {
+                delete map[id];
+                localStorage.setItem('baladyDeletedContractsV1', JSON.stringify(map));
+                return false;
+            }
+            return true;
+        }
+        function unmarkContractDeleted(num) {
+            const map = getDeletedContractIds();
+            delete map[String(num || '').trim()];
+            localStorage.setItem('baladyDeletedContractsV1', JSON.stringify(map));
+        }
+
         async function deleteContract(num) {
             if (!confirm('هل أنت متأكد من حذف هذا العقد؟')) return;
             const pass = await askPassword('أدخل كلمة سر الحذف', 'حذف عقد');
@@ -7473,14 +7559,25 @@ function saveEmail(contractNumber, email) {
                 showAlert('كلمة السر غير صحيحة — لم يتم الحذف', 'error');
                 return;
             }
-            allContracts = allContracts.filter(c => String(c.contractNumber) !== String(num));
-            deletePdfBlob(num);
+            num = String(num == null ? '' : num).trim();
+            markContractDeleted(num);
+            allContracts = (allContracts || []).filter(c => String(c.contractNumber) !== num);
+            filteredContracts = (filteredContracts || []).filter(c => String(c.contractNumber) !== num);
+            try { deletePdfBlob(num); } catch (e) {}
             try { if (typeof deleteContractFromCloud === 'function') deleteContractFromCloud(num); } catch (e) {}
-            try { deleteFromSupabase(num); } catch (e) {}
-            // حفظ محلي بدون إعادة رفع كل العقود (الحذف السحابي تم أعلاه)
             localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
-            applyFilters();
-            showAlert('تم الحذف', 'success');
+            applyFilters(true);
+            showAlert('جاري الحذف من السحابة...', 'info');
+            try {
+                await deleteFromSupabase(num);
+                // محاولة ثانية بعد ثانية
+                setTimeout(function() { deleteFromSupabase(num).catch(function(){}); }, 1500);
+                showAlert('تم حذف العقد محلياً ومن السحابة', 'success');
+            } catch (eDel) {
+                console.error(eDel);
+                showAlert('تم الحذف محلياً — تحقق من اتصال السحابة', 'info');
+            }
+            if (typeof renderTable === 'function') renderTable(filteredContracts);
         }
 
         function parseCoordsFromMapInput(input) {
@@ -8352,6 +8449,12 @@ document.getElementById("reportModal").style.display="block";
                     data.forEach(function(row) {
                         if (!row || !row.contract_number) return;
                         const id = String(row.contract_number);
+                        // تجاهل عقود حُذفت من هذا الجهاز
+                        if (typeof isContractDeleted === 'function' && isContractDeleted(id)) {
+                            // تأكد من حذفها من السحابة إن عادت
+                            try { deleteFromSupabase(id); } catch (eD) {}
+                            return;
+                        }
                         seen[id] = true;
                         const remote = fromRow(row);
                         merged.push(mergeContract(localMap[id], remote));
@@ -8359,7 +8462,9 @@ document.getElementById("reportModal").style.display="block";
                 }
                 // عقود محلية لم تصل للسحابة بعد
                 Object.keys(localMap).forEach(function(id) {
-                    if (!seen[id]) merged.push(localMap[id]);
+                    if (seen[id]) return;
+                    if (typeof isContractDeleted === 'function' && isContractDeleted(id)) return;
+                    merged.push(localMap[id]);
                 });
 
                 if (merged.length > 0) {
@@ -8546,7 +8651,11 @@ document.getElementById("reportModal").style.display="block";
             const progressBar = document.getElementById('progressBar');
             const progressText = document.getElementById('progressText');
             try {
-                const list = (allContracts || []).filter(function(c) { return c && c.contractNumber; });
+                const list = (allContracts || []).filter(function(c) {
+                    if (!c || !c.contractNumber) return false;
+                    if (typeof isContractDeleted === 'function' && isContractDeleted(c.contractNumber)) return false;
+                    return true;
+                });
                 let ok = 0, fail = 0;
                 const BATCH = 8;
                 if (showMsg && loadingMsg) {
@@ -8886,9 +8995,9 @@ document.getElementById("reportModal").style.display="block";
         <div class="modal-content" style="max-width:400px;margin:15% auto;">
             <div style="font-weight:700;color:#134e4a;margin-bottom:10px;font-size:1.05em;" id="passwordModalTitle">كلمة السر</div>
             <p id="passwordModalMsg" style="color:#475569;font-size:0.9em;margin-bottom:10px;"></p>
-            <input type="password" id="passwordModalInput" autocomplete="current-password" placeholder="••••••••"
-                style="width:100%;padding:10px 12px;border:2px solid #cbd5e1;border-radius:8px;font-size:1.1em;font-family:inherit;letter-spacing:3px;direction:ltr;text-align:center;"
-                onkeydown="if(event.key==='Enter'){event.preventDefault();confirmPasswordModal();}">
+            <input type="text" id="passwordModalInput" name="balady_action_pin" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other" placeholder="••••••••"
+                style="width:100%;padding:10px 12px;border:2px solid #cbd5e1;border-radius:8px;font-size:1.1em;font-family:inherit;letter-spacing:3px;direction:ltr;text-align:center;-webkit-text-security:disc;text-security:disc;"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();confirmPasswordModal();}">
             <div class="buttons-row" style="margin-top:14px;justify-content:center;">
                 <button class="btn-success" type="button" onclick="confirmPasswordModal()">تأكيد</button>
                 <button class="btn-danger" type="button" onclick="cancelPasswordModal()">إلغاء</button>
