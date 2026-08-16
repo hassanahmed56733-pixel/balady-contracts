@@ -168,7 +168,7 @@
         
         table { font-size: 0.82em !important; }
         #contractsTable th { padding: 6px 5px !important; font-size: 0.85em; }
-        #contractsTable td { padding: 23px 5px !important; white-space: nowrap; }
+        #contractsTable td { padding: 6px 5px !important; white-space: nowrap; }
         #contractsTable .cell-text {
             display: inline-block; max-width: 160px; overflow: hidden; text-overflow: ellipsis;
             vertical-align: middle; font-size: 0.95em;
@@ -6715,14 +6715,16 @@ function saveEmail(contractNumber, email) {
             }
             
             console.log('🔐 التحقق من كلمة السر...');
-            if (pass !== DELETE_PASSWORD) {
-                console.error('❌ كلمة السر غير صحيحة. المتوقعة:', DELETE_PASSWORD, 'المدخلة:', pass);
+            const okPass = (pass === DELETE_PASSWORD || pass === PRICE_EDIT_PASSWORD || pass === NEW_DATES_EDIT_PASSWORD);
+            if (!okPass) {
+                console.error('❌ كلمة السر غير صحيحة. المدخلة:', pass);
                 showAlert('كلمة السر غير صحيحة', 'error');
                 return;
             }
             
             console.log('✅ كلمة السر صحيحة، البحث عن العقد...');
-            const c = allContracts.find(x => x.contractNumber === num);
+            num = String(num == null ? '' : num).trim();
+            const c = allContracts.find(x => String(x.contractNumber) === num);
             if (!c) {
                 console.error('❌ لم يتم العثور على العقد:', num);
                 console.log('العقود المتاحة:', allContracts.map(x => x.contractNumber));
@@ -6980,9 +6982,20 @@ function saveEmail(contractNumber, email) {
         }
 
         function saveEditContract(num) {
-            const c = allContracts.find(x => x.contractNumber === num);
-            if (!c) return;
-            const g = id => (document.getElementById(id) || {}).value || '';
+            num = String(num == null ? '' : num).trim();
+            const c = allContracts.find(x => String(x.contractNumber) === num);
+            if (!c) {
+                showAlert('لم يتم العثور على العقد للحفظ: ' + num, 'error');
+                return;
+            }
+            const editRoot = document.querySelector('.float-report-panel[data-edit-num="' + num.replace(/"/g, '') + '"]')
+                || document.querySelector('.float-report-panel[data-edit-num]')
+                || document.getElementById('editModal')
+                || document;
+            const g = function(id) {
+                const el = (editRoot.querySelector && editRoot.querySelector('#' + id)) || document.getElementById(id);
+                return (el && el.value != null) ? el.value : '';
+            };
             // تعديل رقم العقد (إن تغيّر)
             const newNum = (g('edit_contractNumber') || '').trim();
             if (newNum && newNum !== String(num)) {
@@ -7072,6 +7085,25 @@ function saveEmail(contractNumber, email) {
 
             c.location = c.district;
             c.subMunicipality = c.municipality;
+
+            // استخراج الإحداثيات من رابط الخريطة دائماً (مهم للجوال — روابط جوجل مابس)
+            try {
+                const mapRaw = (document.getElementById('edit_mapUrl') || {}).value || c.mapUrl || '';
+                if (mapRaw && String(mapRaw).trim()) {
+                    const parsed = typeof parseCoordsFromMapInput === 'function' ? parseCoordsFromMapInput(mapRaw) : null;
+                    if (parsed) {
+                        if (parsed.mapUrl) c.mapUrl = parsed.mapUrl;
+                        if (parsed.coordinates) c.coordinates = parsed.coordinates;
+                        else if (parsed.lat != null && parsed.lng != null && !isNaN(parsed.lat) && !isNaN(parsed.lng)) {
+                            c.coordinates = parsed.lat + ',' + parsed.lng;
+                        }
+                        if (parsed.shortLink && !c.coordinates) {
+                            showAlert('تم حفظ الرابط. للدقة على الخريطة الصق رابط Google Maps كامل أو إحداثيات مثل 24.467,39.611', 'info');
+                        }
+                    }
+                }
+            } catch (eMap) { console.warn('map parse', eMap); }
+
             // السعر القديم: لا يُستبدل من الجدول إن عُدّل يدوياً (حقل مفتوح)
             {
                 const priceInp = document.getElementById('edit_pricePerUnit');
@@ -7137,10 +7169,14 @@ function saveEmail(contractNumber, email) {
                 });
             }
             
-            // ✅ إغلاق الـ modal بعد الرسم
+            // ✅ إغلاق نافذة التعديل (عائمة أو modal) بعد الرسم
             setTimeout(() => {
+                try {
+                    document.querySelectorAll('.float-report-panel[data-edit-num]').forEach(function(p) {
+                        try { p.remove(); } catch (eR) {}
+                    });
+                } catch (eC) {}
                 closeEditModal();
-                // ✅ تثبيت الصفحة مرة أخرى بعد الإغلاق
                 if (currentPage !== correctPage) {
                     currentPage = correctPage;
                     renderTable(filteredContracts);
@@ -7437,7 +7473,7 @@ function saveEmail(contractNumber, email) {
                 showAlert('كلمة السر غير صحيحة — لم يتم الحذف', 'error');
                 return;
             }
-            allContracts = allContracts.filter(c => c.contractNumber !== num);
+            allContracts = allContracts.filter(c => String(c.contractNumber) !== String(num));
             deletePdfBlob(num);
             try { if (typeof deleteContractFromCloud === 'function') deleteContractFromCloud(num); } catch (e) {}
             try { deleteFromSupabase(num); } catch (e) {}
@@ -7451,7 +7487,6 @@ function saveEmail(contractNumber, email) {
             if (!input) return null;
             let raw = String(input).trim();
             if (!raw) return null;
-            // إبقاء مسافة اختيارية بين الإحداثيات ثم تطبيع
             let u = raw.replace(/\s+/g, '');
             function normalizeSaudi(lat, lng) {
                 if (!(lat >= 16 && lat <= 33 && lng >= 34 && lng <= 56)) {
@@ -7462,10 +7497,10 @@ function saveEmail(contractNumber, email) {
                 return { lat: lat, lng: lng };
             }
             function googleMapsUrl(lat, lng) {
-                // رابط جوجل مابس دقيق وثابت (يفضّله النظام للخريطة والمزامنة)
+                // رابط جوجل مابس دقيق وثابت
                 return 'https://www.google.com/maps?q=' + lat + ',' + lng;
             }
-            // إحداثيات مباشرة: 24.46,39.61 أو 24.46, 39.61
+            // إحداثيات مباشرة
             let m = u.match(/^([0-9.\-]+),([0-9.\-]+)$/);
             if (m) {
                 let lat = parseFloat(m[1]), lng = parseFloat(m[2]);
@@ -7475,11 +7510,9 @@ function saveEmail(contractNumber, email) {
                     return { lat: n.lat, lng: n.lng, coordinates: coordinates, mapUrl: googleMapsUrl(n.lat, n.lng) };
                 }
             }
-            // إضافة https للروابط الناقصة
             if (!/^https?:\/\//i.test(u) && /google\.|maps\.|goo\.gl|maps\.app|g\.page/i.test(u)) {
                 u = 'https://' + u;
             }
-            // أنماط روابط جوجل مابس الشائعة (دقيقة)
             const patterns = [
                 /[?&]q=([0-9.\-]+),([0-9.\-]+)/,
                 /[?&]query=([0-9.\-]+)%2C([0-9.\-]+)/i,
@@ -7501,7 +7534,6 @@ function saveEmail(contractNumber, email) {
                     if (isNaN(a) || isNaN(b)) continue;
                     const n = normalizeSaudi(a, b);
                     const coordinates = n.lat + ',' + n.lng;
-                    // دائماً نحفظ رابط جوجل مابس قياسي دقيق + نحتفظ بالرابط الأصلي إن رغبت الواجهة
                     return {
                         lat: n.lat,
                         lng: n.lng,
@@ -7511,7 +7543,7 @@ function saveEmail(contractNumber, email) {
                     };
                 }
             }
-            // رابط جوجل مختصر بدون إحداثيات ظاهرة (maps.app.goo.gl / goo.gl)
+            // رابط جوجل مختصر بدون إحداثيات ظاهرة
             if (/^https?:\/\//i.test(u) && /maps\.app\.goo\.gl|goo\.gl\/maps|google\.com\/maps/i.test(u)) {
                 return { lat: null, lng: null, coordinates: '', mapUrl: u, shortLink: true, isGoogle: true };
             }
@@ -8243,6 +8275,10 @@ document.getElementById("reportModal").style.display="block";
 
         async function loadContractsFromSupabase() {
             if (!supabaseReady || !supabase) return;
+            if (window.__suppressCloudLoadUntil && Date.now() < window.__suppressCloudLoadUntil) {
+                console.log('⏸️ تخطي تحميل السحابة بعد المسح الكامل');
+                return;
+            }
             try {
                 const { data, error } = await supabase.from('contracts').select('*');
                 if (error) throw error;
@@ -8489,6 +8525,10 @@ document.getElementById("reportModal").style.display="block";
         async function runSupabaseFullSync(showMsg) {
             if (!supabaseReady || !supabase) {
                 if (showMsg) alert('Supabase غير متصل');
+                return;
+            }
+            if (window.__suppressCloudLoadUntil && Date.now() < window.__suppressCloudLoadUntil) {
+                console.log('⏸️ تخطي المزامنة بعد المسح الكامل');
                 return;
             }
             if (__supabaseSyncRunning && !showMsg) return;
@@ -8750,23 +8790,56 @@ document.getElementById("reportModal").style.display="block";
         }
 
         async function clearAllData() {
-            if (!confirm('مسح جميع العقود وملفات PDF المحفوظة؟')) return;
+            if (!confirm('مسح جميع العقود وملفات PDF المحفوظة من هذا الجهاز والسحابة؟')) return;
             const pass = await askPassword('أدخل كلمة سر الحذف لتأكيد مسح الكل', 'مسح جميع البيانات');
             if (pass === null) return;
             if (pass !== DELETE_PASSWORD) {
                 showAlert('كلمة السر غير صحيحة — لم يتم المسح', 'error');
                 return;
             }
+            window.__suppressCloudLoadUntil = Date.now() + 60000;
+            window.__clearedAllFlag = true;
             allContracts = [];
-            localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
+            filteredContracts = [];
+            localStorage.setItem('baladyWasteContractsV3', JSON.stringify([]));
             try { if (typeof clearAllContractsFromCloud === 'function') clearAllContractsFromCloud(); } catch (e) {}
+            try {
+                if (supabaseReady && supabase) {
+                    showAlert('جاري مسح العقود من السحابة...', 'info');
+                    const { error } = await supabase.from('contracts').delete().neq('contract_number', '__never__');
+                    if (error) {
+                        console.warn('clear supabase bulk failed', error);
+                        const { data: rows } = await supabase.from('contracts').select('contract_number');
+                        if (rows && rows.length) {
+                            for (let i = 0; i < rows.length; i++) {
+                                await supabase.from('contracts').delete().eq('contract_number', rows[i].contract_number);
+                            }
+                        }
+                    } else {
+                        console.log('✅ تم مسح كل العقود من Supabase');
+                    }
+                    try {
+                        const { data: files } = await supabase.storage.from('contract-pdfs').list('', { limit: 1000 });
+                        if (files && files.length) {
+                            const paths = files.map(function(f) { return f.name; }).filter(Boolean);
+                            for (let i = 0; i < paths.length; i += 50) {
+                                await supabase.storage.from('contract-pdfs').remove(paths.slice(i, i + 50));
+                            }
+                        }
+                    } catch (eSt) { console.warn('clear storage', eSt); }
+                }
+            } catch (eCloud) {
+                console.error('clearAllData cloud', eCloud);
+            }
             try {
                 const db = await openPdfDb();
                 const tx = db.transaction(PDF_STORE, 'readwrite');
                 tx.objectStore(PDF_STORE).clear();
             } catch (e) {}
+            currentPage = 1;
             renderTable([]);
-            showAlert('تم المسح', 'success');
+            if (typeof updateStats === 'function') updateStats([]);
+            showAlert('تم مسح جميع العقود محلياً ومن السحابة', 'success');
         }
 
         function showAlert(msg, type) {
