@@ -168,7 +168,13 @@
         
         table { font-size: 0.82em !important; }
         #contractsTable th { padding: 6px 5px !important; font-size: 0.85em; }
-        #contractsTable td { padding: 23px 5px !important; white-space: nowrap; }
+        #contractsTable td { padding: 10px 5px !important; white-space: nowrap; }
+        .table-wrapper { padding-bottom: 80px !important; min-height: 200px; }
+        #contractsTable tbody tr:last-child td { padding-bottom: 18px !important; }
+        @media (max-width: 768px) {
+            #contractsTable td { padding: 8px 4px !important; }
+            .table-wrapper { padding-bottom: 120px !important; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        }
         #contractsTable .cell-text {
             display: inline-block; max-width: 160px; overflow: hidden; text-overflow: ellipsis;
             vertical-align: middle; font-size: 0.95em;
@@ -7312,7 +7318,7 @@ function saveEmail(contractNumber, email) {
             box.innerHTML = html;
         }
 
-        function saveMapUrl(contractNumber, url) {
+        async function saveMapUrl(contractNumber, url) {
             const c = allContracts.find(x => x.contractNumber === contractNumber);
             if (!c) return;
             // من الجدول: لا يُكتب فوق موقع موجود (التعديل عبر تقرير التعديل فقط)
@@ -7332,8 +7338,8 @@ function saveEmail(contractNumber, email) {
             c.updatedAt = Date.now();
             const f = filteredContracts.find(x => x.contractNumber === contractNumber);
             if (f) { f.mapUrl = c.mapUrl; f.coordinates = c.coordinates; }
-            saveToLocalStorage(contractNumber);
-            try { if (typeof saveToSupabase === 'function') saveToSupabase(c); } catch (e) {}
+            localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
+            try { if (typeof saveToSupabase === 'function') await saveToSupabase(c); } catch (e) {}
 
             // تحديث رابط الفتح فوراً بدون إعادة رسم الجدول
             const link = document.getElementById('mapLink_' + contractNumber);
@@ -7348,7 +7354,7 @@ function saveEmail(contractNumber, email) {
                 }
             }
         }
-        function saveMapUrlOnce(contractNumber, url) {
+        async function saveMapUrlOnce(contractNumber, url) {
             const c = allContracts.find(x => x.contractNumber === contractNumber);
             if (!c) return;
             if (String(c.mapUrl || c.coordinates || '').trim()) {
@@ -7356,19 +7362,25 @@ function saveEmail(contractNumber, email) {
                 return;
             }
             const parsed = parseCoordsFromMapInput(url);
-            if (!parsed || !parsed.mapUrl) return;
+            if (!parsed || !parsed.mapUrl) {
+                showAlert('رابط غير صالح — الصق إحداثيات مثل 24.467,39.611 أو رابط خرائط كامل', 'error');
+                return;
+            }
             c.mapUrl = parsed.mapUrl;
             c.coordinates = parsed.coordinates || '';
             c.updatedAt = Date.now();
             const f = filteredContracts.find(x => x.contractNumber === contractNumber);
             if (f) { f.mapUrl = c.mapUrl; f.coordinates = c.coordinates; }
-            saveToLocalStorage(contractNumber);
-            try { if (typeof saveToSupabase === 'function') saveToSupabase(c); } catch (e) {}
+            localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
+            var cloudOk = false;
+            try {
+                if (typeof saveToSupabase === 'function') cloudOk = await saveToSupabase(c);
+            } catch (e) { console.error(e); }
             if (typeof renderTable === 'function') renderTable(filteredContracts);
             if (parsed.coordinates) {
-                showAlert('تم حفظ الموقع والإحداثيات — سيظهر على الخريطة', 'success');
+                showAlert('تم حفظ الموقع والإحداثيات' + (cloudOk ? ' (والسحابة)' : ' (محلياً — تحقق من الاتصال)') + ' — سيظهر على الخريطة', cloudOk ? 'success' : 'info');
             } else {
-                showAlert('تم حفظ الرابط، لكن بدون إحداثيات ظاهرة.\nللظهور على الخريطة الصق رابطاً فيه @ أو إحداثيات مثل:\n24.467,39.611\nأو من خرائط Google: مشاركة → نسخ الرابط بعد فتح الموقع على الخريطة', 'info');
+                showAlert('تم حفظ الرابط بدون إحداثيات ظاهرة.\nللخريطة الصق: 24.467,39.611\nأو رابط Google فيه @ أو q=', 'info');
             }
         }
 
@@ -8214,6 +8226,10 @@ document.getElementById("reportModal").style.display="block";
 
         async function loadContractsFromSupabase() {
             if (!supabaseReady || !supabase) return;
+            if (window.__blockCloudLoadUntil && Date.now() < window.__blockCloudLoadUntil) {
+                console.log('⏸ تخطي تحميل السحابة (بعد مسح محلي)');
+                return;
+            }
             try {
                 const { data, error } = await supabase.from('contracts').select('*');
                 if (error) throw error;
@@ -8721,23 +8737,34 @@ document.getElementById("reportModal").style.display="block";
         }
 
         async function clearAllData() {
-            if (!confirm('مسح جميع العقود وملفات PDF المحفوظة؟')) return;
+            if (!confirm('مسح جميع العقود وملفات PDF المحفوظة؟\nسيتم المسح من هذا الجهاز ومن السحابة أيضاً.')) return;
             const pass = await askPassword('أدخل كلمة سر الحذف لتأكيد مسح الكل', 'مسح جميع البيانات');
             if (pass === null) return;
             if (pass !== DELETE_PASSWORD) {
                 showAlert('كلمة السر غير صحيحة — لم يتم المسح', 'error');
                 return;
             }
+            // منع إعادة تحميل البيانات من السحابة فوراً بعد المسح
+            window.__blockCloudLoadUntil = Date.now() + 15000;
             allContracts = [];
-            localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
+            filteredContracts = [];
+            localStorage.setItem('baladyWasteContractsV3', JSON.stringify([]));
+            try {
+                if (supabaseReady && supabase) {
+                    const { error } = await supabase.from('contracts').delete().neq('contract_number', '__none__');
+                    if (error) console.error('مسح السحابة:', error);
+                    else console.log('✓ تم مسح العقود من Supabase');
+                }
+            } catch (e) { console.error(e); }
             try { if (typeof clearAllContractsFromCloud === 'function') clearAllContractsFromCloud(); } catch (e) {}
             try {
                 const db = await openPdfDb();
                 const tx = db.transaction(PDF_STORE, 'readwrite');
                 tx.objectStore(PDF_STORE).clear();
             } catch (e) {}
-            renderTable([]);
-            showAlert('تم المسح', 'success');
+            if (typeof renderTable === 'function') renderTable([]);
+            if (typeof updateStats === 'function') try { updateStats([]); } catch (e2) {}
+            showAlert('تم المسح من الجهاز والسحابة', 'success');
         }
 
         function showAlert(msg, type) {
@@ -8780,7 +8807,7 @@ document.getElementById("reportModal").style.display="block";
         </div>
     </div>
 
-    <div id="passwordModal" class="modal" style="z-index:3000;">
+    <div id="passwordModal" class="modal" style="z-index:99999;">
         <div class="modal-content" style="max-width:400px;margin:15% auto;">
             <div style="font-weight:700;color:#134e4a;margin-bottom:10px;font-size:1.05em;" id="passwordModalTitle">كلمة السر</div>
             <p id="passwordModalMsg" style="color:#475569;font-size:0.9em;margin-bottom:10px;"></p>
