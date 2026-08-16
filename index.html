@@ -788,6 +788,7 @@
                 <button class="btn-warning" onclick="exportTemplate()">📥 قالب Excel</button>
                 <button class="btn-danger" onclick="clearAllData()">🗑️ مسح الكل</button>
                 <button class="btn-success" onclick="refreshAllFromSavedPdfs()">🔄 تحديث الناقص من PDF المحفوظ</button>
+                <button class="btn-success" onclick="refreshFromSupabase()" style="background-color:#0891b2;" title="تحديث البيانات من السحابة فوراً">☁️ تحديث من السحابة (Supabase)</button>
                 <button class="btn-primary" onclick="openManualEntryForm()">➕ إدخال عقد يدوي</button>
                 <button class="btn-primary" onclick="toggleDebug()">🔍 إظهار نص PDF المستخرج (للتشخيص)</button>
             <button class="btn-purple" onclick="showUpcomingClaims()">
@@ -2101,6 +2102,24 @@
             window.refreshContractFromSavedPdf = refreshContractFromSavedPdf;
         } catch (eWin) {}
 
+        async function refreshFromSupabase() {
+            console.log('🔄 تحديث البيانات من Supabase...');
+            if (!supabaseReady || !supabase) {
+                showAlert('Supabase غير متصل. حاول لاحقاً.', 'warning');
+                return;
+            }
+            
+            try {
+                showAlert('جاري التحديث...', 'info');
+                await loadContractsFromSupabase();
+                showAlert('✅ تم التحديث من السحابة بنجاح!', 'success');
+                console.log('✅ تم تحديث', allContracts.length, 'عقد من Supabase');
+            } catch (e) {
+                console.error('❌ خطأ في التحديث:', e);
+                showAlert('❌ خطأ في التحديث. تحقق من الاتصال.', 'error');
+            }
+        }
+
         async function refreshAllFromSavedPdfs() {
             if (!allContracts.length) {
                 showAlert('لا توجد عقود', 'error');
@@ -2207,6 +2226,15 @@
         window.addEventListener('load', () => {
             try { loadFromLocalStorage(); } catch(e) { console.error(e); allContracts = []; }
             try { initSupabase(); } catch(e) { console.warn('Supabase initialization failed:', e); }
+            // تحديث من Supabase بعد تأخير قصير للتأكد من الاتصال
+            setTimeout(function() {
+                try { 
+                    if (supabaseReady && supabase) {
+                        console.log('🔄 تحديث من Supabase عند التحميل...');
+                        loadContractsFromSupabase();
+                    }
+                } catch(e) { console.warn('Failed to load from Supabase:', e); }
+            }, 1500);
             try { applyCustomBinPrices(); } catch(e) {}
             try { renderBinTypes(); } catch(e) {}
             // القوائم مخفية افتراضياً — تُفتح فقط بكلمة سر عبر «عرض القائمة»
@@ -8246,6 +8274,16 @@ document.getElementById("reportModal").style.display="block";
             }
         }
 
+        // تحديث البيانات عند العودة من التطبيق/التبويب الآخر
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                console.log('👀 الصفحة أصبحت مرئية - جاري التحديث...');
+                if (supabaseReady && supabase) {
+                    loadContractsFromSupabase();
+                }
+            }
+        });
+
         function subscribeToChanges() {
             if (!supabaseReady || !supabase) return;
             try {
@@ -8257,8 +8295,23 @@ document.getElementById("reportModal").style.display="block";
                             loadContractsFromSupabase();
                         })
                     .subscribe();
+                    
+                // Polling كل 10 ثواني للتأكد من المزامنة
+                setInterval(function() {
+                    if (supabaseReady && supabase) {
+                        loadContractsFromSupabase();
+                    }
+                }, 10000);
+                
+                console.log('✅ Real-time subscription + Polling active');
             } catch (e) {
                 console.error('❌ Subscribe error:', e);
+                // إذا فشل Real-time، استخدم Polling فقط
+                setInterval(function() {
+                    if (supabaseReady && supabase) {
+                        loadContractsFromSupabase();
+                    }
+                }, 5000); // Polling كل 5 ثواني كبديل
             }
         }
 
