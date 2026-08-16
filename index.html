@@ -5787,8 +5787,12 @@
                 const flaggedBadge = flaggedClient
                     ? ` <span title="${esc(flaggedClient.note)}" style="display:inline-block;background:#dc2626;color:#fff;border-radius:10px;padding:1px 7px;font-size:0.72em;font-weight:800;margin-right:4px;cursor:help;">🚫 تواصل قبل التنفيذ</span>`
                     : '';
+                
+                // إضافة key فريد لكل صف (لمنع مشاكل rendering)
+                const rowKey = 'row-' + c.contractNumber + '-' + (c.updatedAt || 0);
+                
                 return `
-                    <tr class="${st.rowClass}" data-num="${c.contractNumber}"${flaggedClient ? ' style="background:#fef2f2;"' : ''}>
+                    <tr class="${st.rowClass}" data-num="${c.contractNumber}" data-key="${rowKey}"${flaggedClient ? ' style="background:#fef2f2;"' : ''}>
                         <td><strong style="font-size:0.95em;">${c.contractNumber}</strong></td>
                         <td><span class="cell-text wide ${nameCls}" title="${esc(nameShow)}">${esc(nameShow)}</span>${flaggedBadge}</td>
                         <td>${c.commercialRegistry || '-'}</td>
@@ -6702,14 +6706,31 @@ function saveEmail(contractNumber, email) {
         }
 
         async function openEditContract(num) {
+            console.log('🔧 محاولة فتح التعديل للعقد:', num);
+            
             const pass = await askPassword('أدخل كلمة سر التعديل للمتابعة', 'تعديل بيانات العقد');
-            if (pass === null) return;
+            if (pass === null) {
+                console.log('❌ المستخدم ألغى التعديل');
+                return;
+            }
+            
+            console.log('🔐 التحقق من كلمة السر...');
             if (pass !== DELETE_PASSWORD) {
+                console.error('❌ كلمة السر غير صحيحة. المتوقعة:', DELETE_PASSWORD, 'المدخلة:', pass);
                 showAlert('كلمة السر غير صحيحة', 'error');
                 return;
             }
+            
+            console.log('✅ كلمة السر صحيحة، البحث عن العقد...');
             const c = allContracts.find(x => x.contractNumber === num);
-            if (!c) return;
+            if (!c) {
+                console.error('❌ لم يتم العثور على العقد:', num);
+                console.log('العقود المتاحة:', allContracts.map(x => x.contractNumber));
+                showAlert('لم يتم العثور على العقد: ' + num, 'error');
+                return;
+            }
+            
+            console.log('✅ عقد وجد، جاري فتح النموذج...');
             const nd = calcNewDates(c.oldEndDate, c);
             
             // قائمة الحقول حسب الصفوف (كل صف = عمودين)
@@ -7103,6 +7124,18 @@ function saveEmail(contractNumber, email) {
             }
             
             showAlert('تم حفظ التعديلات وتسجيل الإجراءات', 'success');
+            
+            // ✅ حفظ على Supabase فوراً مع تحديث فوري (يضمن ظهور البيانات على الأجهزة الأخرى)
+            if (supabaseReady && supabase && c) {
+                console.log('💾 حفظ على Supabase:', c.contractNumber);
+                saveToSupabase(c).then(() => {
+                    console.log('✅ حفظ Supabase نجح، جاري التحديث الفوري...');
+                    // تحديث فوري من Supabase للتأكد من ظهور البيانات على الأجهزة الأخرى
+                    loadContractsFromSupabase();
+                }).catch(e => {
+                    console.error('❌ حفظ Supabase فشل:', e.message);
+                });
+            }
             
             // ✅ إغلاق الـ modal بعد الرسم
             setTimeout(() => {
@@ -7821,6 +7854,21 @@ function generateReport(num) {
             });
         }
 function showMapReport() {
+            // 🔄 تحديث من Supabase أولاً للتأكد من أحدث البيانات
+            console.log('🗺️ عرض الخريطة - تحديث من Supabase...');
+            if (supabaseReady && supabase) {
+                loadContractsFromSupabase().then(() => {
+                    doShowMapReport();
+                }).catch(e => {
+                    console.warn('⚠️ فشل تحديث Supabase، استخدام البيانات المحلية');
+                    doShowMapReport();
+                });
+            } else {
+                doShowMapReport();
+            }
+        }
+
+        function doShowMapReport() {
             const active = allContracts.filter(c => getContractStatus(c.oldEndDate).status === 'active');
             const warning = allContracts.filter(c => getContractStatus(c.oldEndDate).status === 'warning');
             const expired = allContracts.filter(c => getContractStatus(c.oldEndDate).status === 'expired');
