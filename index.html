@@ -8384,52 +8384,92 @@ document.getElementById("reportModal").style.display="block";
         // مزامنة مجمّعة مؤجّلة — تمنع مئات الطلبات دفعة واحدة (سبب البطء على الجوال)
         let __supabaseSyncTimer = null;
         let __supabaseSyncRunning = false;
-        function forceSyncAllToSupabase() {
+        async function forceSyncAllToSupabase() {
             if (!supabaseReady || !supabase) {
-                showAlert('Supabase غير متصل', 'error');
+                alert('Supabase غير متصل');
                 return;
             }
             const n = (allContracts || []).length;
             if (!n) {
-                showAlert('لا توجد عقود محلية للمزامنة', 'error');
+                alert('لا توجد عقود محلية للمزامنة');
                 return;
             }
             if (!confirm('رفع / تحديث ' + n + ' عقداً إلى السحابة؟\nاستخدم هذا من الكمبيوتر إذا كان العدد هناك أكبر من الجوال.')) return;
-            runSupabaseFullSync(true);
+            // إذا كانت مزامنة خلفية تعمل — انتظر ثم ابدأ مزامنة ظاهرة
+            var waits = 0;
+            while (__supabaseSyncRunning && waits < 60) {
+                await new Promise(function(r) { setTimeout(r, 500); });
+                waits++;
+            }
+            __supabaseSyncRunning = false;
+            if (typeof showAlert === 'function') showAlert('جاري رفع ' + n + ' عقداً إلى السحابة... لا تغلق الصفحة', 'info');
+            await runSupabaseFullSync(true);
         }
         function scheduleSupabaseFullSync() {
             if (__supabaseSyncTimer) clearTimeout(__supabaseSyncTimer);
             __supabaseSyncTimer = setTimeout(function() { runSupabaseFullSync(); }, 800);
         }
         async function runSupabaseFullSync(showMsg) {
-            if (__supabaseSyncRunning || !supabaseReady || !supabase) return;
+            if (!supabaseReady || !supabase) {
+                if (showMsg) alert('Supabase غير متصل');
+                return;
+            }
+            if (__supabaseSyncRunning && !showMsg) return;
+            // المزامنة اليدوية لها أولوية
+            if (__supabaseSyncRunning && showMsg) {
+                var w = 0;
+                while (__supabaseSyncRunning && w < 40) {
+                    await new Promise(function(r) { setTimeout(r, 500); });
+                    w++;
+                }
+            }
             __supabaseSyncRunning = true;
             const loadingMsg = document.getElementById('loadingMsg');
+            const progressWrap = document.getElementById('progressBarWrap');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
             try {
                 const list = (allContracts || []).filter(function(c) { return c && c.contractNumber; });
                 let ok = 0, fail = 0;
                 const BATCH = 8;
+                if (showMsg && loadingMsg) {
+                    loadingMsg.style.display = 'block';
+                    loadingMsg.textContent = '☁️ بدء مزامنة ' + list.length + ' عقد...';
+                }
+                if (showMsg && progressWrap) progressWrap.style.display = 'block';
                 for (let i = 0; i < list.length; i += BATCH) {
                     const slice = list.slice(i, i + BATCH);
                     const results = await Promise.all(slice.map(function(c) {
                         return saveToSupabase(c).catch(function() { return false; });
                     }));
                     results.forEach(function(r) { if (r) ok++; else fail++; });
-                    if (loadingMsg && showMsg) {
-                        loadingMsg.style.display = 'block';
-                        loadingMsg.textContent = '☁️ مزامنة السحابة... ' + Math.min(i + BATCH, list.length) + ' / ' + list.length;
+                    if (showMsg) {
+                        const done = Math.min(i + BATCH, list.length);
+                        if (loadingMsg) {
+                            loadingMsg.style.display = 'block';
+                            loadingMsg.textContent = '☁️ مزامنة السحابة... ' + done + ' / ' + list.length + ' (نجح: ' + ok + ')';
+                        }
+                        if (progressBar) progressBar.style.width = Math.round(done * 100 / list.length) + '%';
+                        if (progressText) progressText.textContent = done + ' / ' + list.length;
                     }
                     await new Promise(function(r) { setTimeout(r, 80); });
                 }
                 console.log('✅ مزامنة سحابية مكتملة:', ok, 'فشل:', fail, 'من', list.length);
-                if (showMsg && typeof showAlert === 'function') {
-                    showAlert('تمت مزامنة ' + ok + ' عقد إلى السحابة' + (fail ? (' — فشل ' + fail) : '') + '\nالعدد المحلي: ' + list.length, fail ? 'info' : 'success');
+                if (showMsg) {
+                    const msg = 'تمت مزامنة ' + ok + ' عقد إلى السحابة' + (fail ? (' — فشل ' + fail) : '') + '\nالعدد المحلي: ' + list.length;
+                    if (typeof showAlert === 'function') showAlert(msg, fail ? 'info' : 'success');
+                    alert(msg);
                 }
-                if (loadingMsg && showMsg) {
-                    setTimeout(function() { loadingMsg.style.display = 'none'; }, 1500);
+                if (showMsg && loadingMsg) {
+                    loadingMsg.textContent = '✅ انتهت المزامنة';
+                    setTimeout(function() { loadingMsg.style.display = 'none'; }, 2500);
+                }
+                if (showMsg && progressWrap) {
+                    setTimeout(function() { progressWrap.style.display = 'none'; if (progressBar) progressBar.style.width = '0%'; }, 2500);
                 }
             } catch (e) {
                 console.warn('runSupabaseFullSync', e);
+                if (showMsg) alert('خطأ أثناء المزامنة: ' + (e && e.message ? e.message : e));
             } finally {
                 __supabaseSyncRunning = false;
             }
