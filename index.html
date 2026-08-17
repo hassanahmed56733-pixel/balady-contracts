@@ -7404,14 +7404,27 @@ function saveEmail(contractNumber, email) {
                 showAlert('كلمة السر غير صحيحة — لم يتم الحذف', 'error');
                 return;
             }
-            allContracts = allContracts.filter(c => c.contractNumber !== num);
-            deletePdfBlob(num);
-            try { if (typeof deleteContractFromCloud === 'function') deleteContractFromCloud(num); } catch (e) {}
-            try { deleteFromSupabase(num); } catch (e) {}
-            // حفظ محلي بدون إعادة رفع كل العقود (الحذف السحابي تم أعلاه)
-            localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
-            applyFilters();
-            showAlert('تم الحذف', 'success');
+            // حذف العقد من الذاكرة المحلية
+            allContracts = allContracts.filter(function(c) {
+                return String(c.contractNumber) !== String(num);
+            });
+            // حذف ملف PDF المحلي إن وجد
+            try { deletePdfBlob(num); } catch (ePdf) {}
+            // حذف العقد من Supabase أولاً وانتظر النتيجة
+            try {
+                const success = await deleteFromSupabase(num);
+                if (!success) {
+                    showAlert('فشل حذف العقد من السحابة — لم يتم تأكيد الحذف', 'error');
+                    return;
+                }
+                // حفظ القائمة المحلية بعد نجاح الحذف السحابي
+                localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
+                applyFilters();
+                showAlert('تم حذف العقد من السحابة وجميع الأجهزة', 'success');
+            } catch (e) {
+                console.error('❌ خطأ حذف العقد:', e);
+                showAlert('حدث خطأ أثناء حذف العقد من السحابة', 'error');
+            }
         }
 
         function parseCoordsFromMapInput(input) {
@@ -8244,20 +8257,11 @@ document.getElementById("reportModal").style.display="block";
                         merged.push(mergeContract(localMap[id], remote));
                     });
                 }
-                // عقود محلية لم تصل للسحابة بعد
-                Object.keys(localMap).forEach(function(id) {
-                    if (!seen[id]) merged.push(localMap[id]);
-                });
-
                 if (merged.length > 0) {
                     allContracts = typeof sortContractsByDate === 'function' ? sortContractsByDate(merged) : merged;
                     localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
                     console.log('✅ Merged', merged.length, 'contracts from Supabase + local');
                     applyFilters(true);
-                    // دائماً ارفع النسخة المدمجة كاملة حتى لا يبقى فرق بين الأجهزة (مثل 1342 مقابل 1255)
-                    setTimeout(function() {
-                        try { runSupabaseFullSync(false); } catch (eUp) {}
-                    }, 1200);
                 } else if ((!data || !data.length) && allContracts && allContracts.length) {
                     // السحابة فارغة — ارفع المحلي
                     console.log('☁️ السحابة فارغة — رفع البيانات المحلية...');
