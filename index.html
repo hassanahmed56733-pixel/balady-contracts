@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <title>نظام إدارة عقود النفايات من بلدي</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
@@ -18,11 +18,23 @@
         .leaflet-popup-content { font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; text-align: right; min-width: 180px; }
         .map-legend-pin { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-left: 4px; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        html {
+            height: auto;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);
             padding: 6px;
             min-height: 100vh;
+            min-height: 100dvh;
+            height: auto;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y pinch-zoom;
         }
         .container {
             max-width: 1900px;
@@ -30,7 +42,7 @@
             background: white;
             border-radius: 10px;
             box-shadow: 0 12px 40px rgba(0,0,0,0.3);
-            overflow: hidden;
+            overflow: visible;
         }
         .header {
             background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);
@@ -144,10 +156,10 @@
         .dot-green { background: #16a34a; }
         .dot-yellow { background: #eab308; }
         .dot-red { background: #dc2626; }
-        .table-wrapper { padding: 6px 8px; overflow-x: auto; }
+        .table-wrapper { padding: 8px 10px 80px; overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; touch-action: pan-x pan-y; max-width: 100%; }
         table { width: 100%; border-collapse: collapse; font-size: 0.72em; }
         thead {
-            background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
+            background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);
             color: white;
             position: sticky;
             top: 0;
@@ -155,7 +167,7 @@
         }
         th { padding: 5px 3px; text-align: right; font-weight: 600; white-space: nowrap; }
         td { padding: 3px 3px; border-bottom: 1px solid #e2e8f0; color: #334155; vertical-align: middle; }
-        tbody tr { transition: all 0.15s ease; }
+        tbody tr { transition: all 0.18s ease; }
         tbody tr:hover { box-shadow: inset 0 0 8px rgba(15, 118, 110, 0.15); }
         tbody tr:hover td { background-color: rgba(15, 118, 110, 0.08) !important; }
         tr.status-active { background: #f0fdf4 !important; }
@@ -167,8 +179,79 @@
         .action-buttons { display: flex; gap: 2px; flex-wrap: wrap; }
         
         table { font-size: 0.82em !important; }
-        #contractsTable th { padding: 6px 5px !important; font-size: 0.85em; }
-        #contractsTable td { padding: 23px 5px !important; white-space: nowrap; }
+        /* صفوف مزخرفة بشكل بطاقات مع الإبقاء على ألوان النظام */
+        #contractsTable {
+            border-collapse: separate !important;
+            border-spacing: 0 10px !important;
+        }
+        #contractsTable thead th {
+            padding: 12px 10px !important;
+            font-size: 0.82em;
+            background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%) !important;
+            border: none !important;
+            letter-spacing: 0.02em;
+        }
+        #contractsTable thead th:first-child { border-radius: 12px 0 0 12px; }
+        #contractsTable thead th:last-child { border-radius: 0 12px 12px 0; }
+        #contractsTable tbody tr {
+            box-shadow: 0 1px 4px rgba(15, 118, 110, 0.05);
+            transition: box-shadow 0.15s ease;
+        }
+        #contractsTable tbody tr:hover {
+            box-shadow: 0 2px 8px rgba(15, 118, 110, 0.1) !important;
+        }
+        #contractsTable td {
+            padding: 14px 10px !important;
+            white-space: nowrap;
+            border-top: 1px solid rgba(226, 232, 240, 0.7);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.7) !important;
+            background-clip: padding-box;
+        }
+        #contractsTable tbody tr td:first-child {
+            border-radius: 12px 0 0 12px;
+            border-right: 3px solid #99f6e4;
+            font-weight: 700;
+        }
+        #contractsTable tbody tr td:last-child {
+            border-radius: 0 12px 12px 0;
+        }
+        #contractsTable tbody tr.status-active td:first-child { border-right-color: #86efac; }
+        #contractsTable tbody tr.status-warning td:first-child { border-right-color: #fde047; }
+        #contractsTable tbody tr.status-expired td:first-child { border-right-color: #fca5a5; }
+        /* ألوان خفيفة مريحة للعين */
+        #contractsTable tbody tr.status-active td {
+            background: #f0fdf4 !important;
+        }
+        #contractsTable tbody tr.status-warning td {
+            background: #fefce8 !important;
+        }
+        #contractsTable tbody tr.status-expired td {
+            background: #fef2f2 !important;
+        }
+        /* الصف الحالي عند التركيز بالـ Tab — أوضح بوضوح */
+        #contractsTable tbody tr.row-focused td,
+        #contractsTable tbody tr:focus-within td {
+            background: #ccfbf1 !important;
+            box-shadow: inset 0 0 0 2px #0f766e;
+        }
+        #contractsTable tbody tr.row-focused.status-active td,
+        #contractsTable tbody tr.status-active:focus-within td {
+            background: #bbf7d0 !important;
+            box-shadow: inset 0 0 0 2px #16a34a;
+        }
+        #contractsTable tbody tr.row-focused.status-warning td,
+        #contractsTable tbody tr.status-warning:focus-within td {
+            background: #fde68a !important;
+            box-shadow: inset 0 0 0 2px #ca8a04;
+        }
+        #contractsTable tbody tr.row-focused.status-expired td,
+        #contractsTable tbody tr.status-expired:focus-within td {
+            background: #fecaca !important;
+            box-shadow: inset 0 0 0 2px #dc2626;
+        }
+        #contractsTable tbody tr:hover td {
+            filter: brightness(0.99);
+        }
         #contractsTable .cell-text {
             display: inline-block; max-width: 160px; overflow: hidden; text-overflow: ellipsis;
             vertical-align: middle; font-size: 0.95em;
@@ -182,16 +265,54 @@
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
-            gap: 3px !important;
+            gap: 4px !important;
             align-items: center;
         }
         #contractsTable .btn-small {
-            padding: 3px 6px !important;
+            padding: 5px 8px !important;
             font-size: 0.72em !important;
             white-space: nowrap;
+            border-radius: 8px !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+        }
+        #contractsTable .badge-status {
+            border-radius: 999px !important;
+            padding: 4px 12px !important;
+            font-size: 0.82em !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         #contractsTable a.mail-link {
             color: #0369a1; font-weight: 700; text-decoration: underline; font-size: 0.9em;
+        }
+        #contractsTable .badge-size {
+            border-radius: 999px !important;
+            padding: 3px 10px !important;
+        }
+        /* بداية الصف عند Tab — رقم العقد */
+        #contractsTable .row-tab-start {
+            display: inline-block;
+            font-weight: 700;
+            font-size: 0.95em;
+            outline: none;
+            border-radius: 6px;
+            padding: 2px 6px;
+            cursor: default;
+        }
+        #contractsTable .row-tab-start:focus {
+            outline: 2px solid #0f766e !important;
+            outline-offset: 2px;
+            background: rgba(15, 118, 110, 0.12);
+        }
+        /* وضوح التركيز عند التنقل بالـ Tab حتى نهاية الصفوف */
+        #contractsTable input:focus,
+        #contractsTable select:focus,
+        #contractsTable button:focus,
+        #contractsTable a:focus {
+            outline: 2px solid #0f766e !important;
+            outline-offset: 2px !important;
+            box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.25) !important;
+            z-index: 2;
+            position: relative;
         }
 
         .btn-small {
@@ -213,11 +334,19 @@
         }
         .badge-size { background: #ede9fe; color: #5b21b6; }
         .badge-status {
-            padding: 3px 8px;
+            display: inline-block;
+            padding: 3px 10px;
             border-radius: 14px;
-            font-size: 0.75em;
+            font-size: 0.85em;
             font-weight: 700;
             cursor: pointer;
+            white-space: nowrap;
+            vertical-align: middle;
+            line-height: 1.3;
+        }
+        .report-header .badge-status {
+            font-size: 0.9em;
+            padding: 4px 12px;
         }
         .badge-active { background: #16a34a; color: white; }
         .badge-warning { background: #eab308; color: #422006; }
@@ -358,10 +487,10 @@
             .report-header h2 { font-size: 10.5pt !important; margin-bottom: 1px !important; }
             .report-header p { font-size: 7.5pt !important; margin: 0 !important; }
             #reportQr, [id^="reportQr"] {
-                width: 42mm !important;
-                height: 42mm !important;
+                width: 48mm !important;
+                height: 48mm !important;
                 margin: 1.5mm auto !important;
-                min-height: 42mm !important;
+                min-height: 48mm !important;
             }
             #reportQr img, #reportQr canvas, [id^="reportQr"] img, [id^="reportQr"] canvas {
                 width: 42mm !important;
@@ -541,8 +670,8 @@
             direction: ltr; unicode-bidi: isolate; display: inline-block;
             font-variant-numeric: tabular-nums;
         }
-        .report-qr-wrap { text-align: center; margin: 4px auto; line-height: 0; }
-        .report-qr-wrap #reportQr { width: 220px !important; height: 220px !important; margin: 0 auto; min-height: 220px !important; }
+        .report-qr-wrap { text-align: center; margin: 6px auto 8px; line-height: normal; }
+        .report-qr-wrap #reportQr { width: 200px !important; height: 200px !important; margin: 0 auto; min-height: 200px !important; }
         .report-qr-wrap #reportQr img, .report-qr-wrap #reportQr canvas {
             width: 220px !important; height: 220px !important; max-width: 220px !important; max-height: 220px !important;
         }
@@ -567,11 +696,11 @@
             }
             .official-footer .ft-row { gap: 4px 12px !important; margin: 2px 0 !important; }
             .report-signature { page-break-inside: avoid !important; page-break-before: avoid !important; margin-bottom: 2mm !important; }
-            .report-qr-wrap { margin: 1.5mm auto !important; line-height: 0 !important; }
+            .report-qr-wrap { margin: 1.5mm auto !important; line-height: normal !important; }
             .report-qr-wrap #reportQr, .report-qr-wrap #reportQr img,
             #reportQr, [id^="reportQr"], #reportQr img, [id^="reportQr"] img {
-                width: 42mm !important; height: 42mm !important; max-width: 42mm !important; max-height: 42mm !important;
-                min-height: 42mm !important;
+                width: 34mm !important; height: 34mm !important; max-width: 34mm !important; max-height: 34mm !important;
+                min-height: 34mm !important;
             }
             .official-title { font-size: 11pt !important; margin: 2px 0 3px !important; }
             .official-body, .official-greet { font-size: 8pt !important; margin: 2px 0 !important; line-height: 1.4 !important; }
@@ -600,6 +729,73 @@
         }
 
 
+
+        /* ===== تحسينات الجوال: تمرير وتفاعل ===== */
+        @media (max-width: 900px) {
+            html, body {
+                overflow-x: hidden !important;
+                overflow-y: auto !important;
+                height: auto !important;
+                position: static !important;
+                -webkit-overflow-scrolling: touch !important;
+                touch-action: manipulation;
+            }
+            body { padding: 0 !important; }
+            .container {
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                overflow: visible !important;
+                max-width: 100% !important;
+            }
+            .header { padding: 10px 8px !important; }
+            .header h1 { font-size: 1.05em !important; }
+            .upload-section, .filters-section { padding: 8px !important; }
+            .upload-container { grid-template-columns: 1fr 1fr !important; }
+            .filters-grid { grid-template-columns: 1fr 1fr !important; }
+            .buttons-row {
+                display: flex !important;
+                flex-wrap: wrap !important;
+                gap: 6px !important;
+            }
+            .buttons-row button {
+                flex: 1 1 auto;
+                min-width: calc(50% - 6px);
+                font-size: 0.72em !important;
+                padding: 8px 6px !important;
+            }
+            .table-wrapper {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                width: 100% !important;
+                max-width: 100vw !important;
+            }
+            #contractsTable td { padding: 10px 4px !important; }
+            .stats-section { grid-template-columns: repeat(2, 1fr) !important; }
+            #appRoot, #appRoot.unlocked {
+                display: block !important;
+                overflow: visible !important;
+                height: auto !important;
+                max-height: none !important;
+            }
+            .modal-content {
+                width: 96% !important;
+                max-height: 88vh !important;
+                max-height: 88dvh !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                margin: 4% auto !important;
+                padding: 12px !important;
+            }
+            .float-report-panel {
+                width: 96vw !important;
+                max-height: 90vh !important;
+                max-height: 90dvh !important;
+                top: 2vh !important;
+                overflow: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+        }
+
         /* ===== شاشة تسجيل الدخول ===== */
         #loginOverlay {
             display: none;
@@ -610,6 +806,9 @@
             align-items: center;
             justify-content: center;
             padding: 16px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
         }
         #loginOverlay.show { display: flex !important; }
         .login-card {
@@ -620,6 +819,9 @@
             width: 100%;
             max-width: 400px;
             text-align: center;
+            max-height: min(92vh, 92dvh);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
         .login-card .login-icon { font-size: 2.4em; margin-bottom: 6px; }
         .login-card h2 { color: #134e4a; font-size: 1.25em; margin-bottom: 4px; }
@@ -692,9 +894,10 @@
         .header { position: relative; }
 
     </style>
-
-    <!-- Supabase Library -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0/dist/umd/supabase.min.js"></script>
+    
+    <!-- Firebase Scripts للبيانات المشتركة السحابية -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
 </head>
 <body oncontextmenu="return false;">
 
@@ -785,11 +988,13 @@
                 <button class="btn-warning" onclick="clearAllFilters()">🔄 مسح الفلاتر</button>
                 <button class="btn-purple" onclick="showMapReport()">🗺️ تقرير الخرائط</button>
                 <button class="btn-info" onclick="exportCurrentData()">💾 تصدير Excel</button>
+                <button class="btn-success" onclick="exportDataBackupJson()" title="ينزّل ملف HTML فيه كل العقود — افتحه على جهاز آخر فتظهر البيانات">📦 حفظ / نسخ احتياطي للبيانات (JSON)</button>
+                <button class="btn-primary" onclick="exportDataBackupJson()" title="ملف JSON خفيف للنقل">💾 تصدير بيانات JSON</button>
+                <button class="btn-primary" onclick="document.getElementById('importDataFile').click()" title="استيراد بيانات من جهاز آخر">📥 استيراد بيانات</button>
+                <input type="file" id="importDataFile" accept=".json,application/json" style="display:none" onchange="importDataBackupJson(event)">
                 <button class="btn-warning" onclick="exportTemplate()">📥 قالب Excel</button>
                 <button class="btn-danger" onclick="clearAllData()">🗑️ مسح الكل</button>
                 <button class="btn-success" onclick="refreshAllFromSavedPdfs()">🔄 تحديث الناقص من PDF المحفوظ</button>
-                <button class="btn-success" onclick="refreshFromSupabase()" style="background-color:#0891b2;" title="تحديث البيانات من السحابة فوراً">☁️ تحديث من السحابة (Supabase)</button>
-                <button class="btn-info" onclick="forceSyncAllToSupabase()" title="رفع كل العقود المحلية إلى السحابة — استخدمه من الكمبيوتر إذا كان العدد أكبر">☁️ رفع الكل للسحابة</button>
                 <button class="btn-primary" onclick="openManualEntryForm()">➕ إدخال عقد يدوي</button>
                 <button class="btn-primary" onclick="toggleDebug()">🔍 إظهار نص PDF المستخرج (للتشخيص)</button>
             <button class="btn-purple" onclick="showUpcomingClaims()">
@@ -860,6 +1065,7 @@
                     <label>حجم الحاوية</label>
                     <select id="filterSize">
                         <option value="">الكل</option>
+                        <option value="لم يحدد">لم يحدد</option>
                         <option value="240 لتر">240 لتر</option>
                         <option value="2 ياردا">2 ياردا</option>
                         <option value="4 ياردا">4 ياردا</option>
@@ -870,6 +1076,23 @@
                         <option value="مكبس 2 ياردة">مكبس 2 ياردة</option>
                         <option value="مكبس 7 ياردة">مكبس 7 ياردة</option>
                         <option value="مكبس 22 ياردة">مكبس 22 ياردة</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>العدد</label>
+                    <select id="filterQuantity">
+                        <option value="">الكل</option>
+                        <option value="لم يحدد">لم يحدد</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -925,7 +1148,7 @@
                 <span style="font-size:0.85em;color:#475569;font-weight:600;">تقرير سريع لشهر:</span>
                 <input type="month" id="filterMonth" style="padding:6px 10px;border:2px solid #e2e8f0;border-radius:6px;font-family:inherit;">
                 <select id="filterMonthField" style="padding:6px 10px;border:2px solid #e2e8f0;border-radius:6px;font-family:inherit;">
-                    <option value="oldStart">حسب بداية العقد القديم</option>
+                    <option value="oldt">حسب بداية العقد القديم</option>
                     <option value="oldEnd">حسب نهاية العقد القديم</option>
                     <option value="newStart">حسب بداية العقد الجديد</option>
                 </select>
@@ -936,10 +1159,16 @@
 
         <div class="legend">
             <strong>دليل الحالة:</strong>
-            <div class="legend-item"><span class="legend-dot dot-green"></span> ساري (أكثر من 30 يوم)</div>
-            <div class="legend-item"><span class="legend-dot dot-yellow"></span> ينتهي خلال شهر أو أقل</div>
-            <div class="legend-item"><span class="legend-dot dot-red"></span> منتهي</div>
-            <span style="color:#64748b;">← اضغط على شارة الحالة لعرض: اسم العميل + تاريخ الانتهاء + حجم الحاوية</span>
+            <div class="legend-item" onclick="filterByStatus('active')" style="cursor:pointer;padding:2px 6px;border-radius:6px;" title="اضغط لعرض الساري فقط">
+                <span class="legend-dot dot-green"></span> ساري (أكثر من 30 يوم)
+            </div>
+            <div class="legend-item" onclick="filterByStatus('warning')" style="cursor:pointer;padding:2px 6px;border-radius:6px;" title="اضغط لعرض العقود التي تنتهي قريباً">
+                <span class="legend-dot dot-yellow"></span> ينتهي خلال شهر أو أقل
+            </div>
+            <div class="legend-item" onclick="filterByStatus('expired')" style="cursor:pointer;padding:2px 6px;border-radius:6px;" title="اضغط لعرض المنتهي فقط">
+                <span class="legend-dot dot-red"></span> منتهي
+            </div>
+            <span style="color:#64748b;">← اضغط على اللون للفلترة · اضغط شارة الحالة في الجدول لعرض التفاصيل</span>
         </div>
         
         <div style="margin:12px;padding:12px;background:#f8fafc;border:2px solid #cbd5e1;border-radius:8px;">
@@ -983,12 +1212,13 @@
                         <th>رابط الموقع</th>
                         <th>الجوال</th>
                         <th>البريد</th>
+                        <th>الملاحظات</th>
                         <th>البلدية</th>
                         <th>حجم الحاوية</th>
                         <th>حجم الجديد</th>
                         <th>العدد</th>
                         <th>العدد الجديد</th>
-                        <th>السعر الواحد</th>
+                        <th>سعر العقد القديم</th>
                         <th>السعر الجديد</th>
                         <th>قيمة العقد</th>
                         <th>بداية القديم</th>
@@ -998,9 +1228,9 @@
                         <th>التجديد</th>
                         <th>الحالة</th>
                         <th>أيام التأخير</th>
-                        <th>المديونية</th>
-                        <th>أيام الدائن</th>
-                        <th>المبلغ الدائن</th>
+                        <th>مدين</th>
+                        <th>الأيام المتبقية</th>
+                        <th>دائن</th>
                         <th>الإجراءات</th>
                     </tr>
                 </thead>
@@ -1038,7 +1268,7 @@
                 <div class="stat-value" id="totalBins">0</div>
             </div>
             <div class="stat-card red">
-                <div class="stat-label">إجمالي المديونية</div>
+                <div class="stat-label">إجمالي المدين</div>
                 <div class="stat-value" id="totalDebt">0 ر.س</div>
             </div>
             <div class="stat-card green">
@@ -1106,6 +1336,9 @@
         const NEW_DATES_EDIT_PASSWORD = '4000'; // كلمة سر تعديل بداية/نهاية العقد الجديد
 
         // ===== المتغيرات العامة (كانت مفقودة وتسبب فراغ الجدول) =====
+        // بيانات مضمّنة داخل الملف عند «حفظ نسخة كاملة» — تُحمَّل على أي جهاز بدون سحابة
+        window.__EMBEDDED_CONTRACTS__ = window.__EMBEDDED_CONTRACTS__ || null;
+        window.__EMBEDDED_APP_STATE__ = window.__EMBEDDED_APP_STATE__ || null;
         let allContracts = [];
         let filteredContracts = [];
         let currentPage = 1;
@@ -1122,6 +1355,7 @@
         const PDF_DB_NAME = 'baladyPdfStoreV1';
         const PDF_STORE = 'pdfs';
         const priceTable = {
+              'لم يحدد': 0,
             '240 لتر': 3000,
             '2 ياردا': 4920,
             '4 ياردا': 6900,
@@ -1441,216 +1675,407 @@
         }
 
         function openPdfDb() {
-            if (pdfDbPromise) return pdfDbPromise;
-            pdfDbPromise = new Promise((resolve, reject) => {
-                const req = indexedDB.open(PDF_DB_NAME, 1);
+            // إعادة فتح الاتصال إذا أُغلق بعد فترة خمول (يعمل أولاً ثم يفشل بعد دقائق)
+            if (pdfDbPromise) {
+                return pdfDbPromise.then(function(db) {
+                    try {
+                        void db.objectStoreNames;
+                        return db;
+                    } catch (e) {
+                        pdfDbPromise = null;
+                        return openPdfDb();
+                    }
+                }).catch(function() {
+                    pdfDbPromise = null;
+                    return openPdfDb();
+                });
+            }
+            pdfDbPromise = new Promise(function(resolve, reject) {
+                var req = indexedDB.open(PDF_DB_NAME, 1);
                 req.onupgradeneeded = function(e) {
-                    const db = e.target.result;
+                    var db = e.target.result;
                     if (!db.objectStoreNames.contains(PDF_STORE)) {
                         db.createObjectStore(PDF_STORE, { keyPath: 'contractNumber' });
                     }
                 };
-                req.onsuccess = function(e) { resolve(e.target.result); };
-                req.onerror = function(e) { reject(e.target.error); };
+                req.onsuccess = function(e) {
+                    var db = e.target.result;
+                    db.onclose = function() { pdfDbPromise = null; };
+                    db.onversionchange = function() {
+                        try { db.close(); } catch (err) {}
+                        pdfDbPromise = null;
+                    };
+                    resolve(db);
+                };
+                req.onerror = function(e) {
+                    pdfDbPromise = null;
+                    reject(e.target.error);
+                };
             });
             return pdfDbPromise;
         }
 
         async function savePdfBlob(contractNumber, blob, fileName) {
-            const num = String(contractNumber || '').trim();
-            if (!num || !blob) return false;
-            const fname = fileName || (num + '.pdf');
-            let localOk = false;
-            // 1) حفظ محلي في IndexedDB (سريع للجهاز الحالي)
             try {
+                // حفظ محلي IndexedDB فقط (Firebase PDF معطّل بسبب الحجم)
                 const db = await openPdfDb();
-                await new Promise((resolve, reject) => {
+                return new Promise(function(resolve, reject) {
                     const tx = db.transaction(PDF_STORE, 'readwrite');
                     tx.objectStore(PDF_STORE).put({
-                        contractNumber: num,
+                        contractNumber: String(contractNumber),
                         blob: blob,
-                        fileName: fname,
+                        fileName: fileName || (contractNumber + '.pdf'),
                         savedAt: new Date().toISOString()
                     });
-                    tx.oncomplete = () => resolve(true);
-                    tx.onerror = () => reject(tx.error);
+                    tx.oncomplete = function() { resolve(true); };
+                    tx.onerror = function() { pdfDbPromise = null; reject(tx.error); };
+                    tx.onabort = function() { pdfDbPromise = null; reject(tx.error || new Error('tx aborted')); };
                 });
-                localOk = true;
             } catch (e) {
-                console.warn('savePdfBlob local failed', e);
-            }
-            // 2) رفع إلى Supabase Storage (مشترك بين الأجهزة)
-            try {
-                if (typeof supabase !== 'undefined' && supabase && supabaseReady) {
-                    const safeKey = num.replace(/[\/\\?#%]+/g, '_');
-                    const path = safeKey + '.pdf';
-                    const file = blob instanceof File ? blob : new File([blob], fname, { type: 'application/pdf' });
-                    const { error } = await supabase.storage
-                        .from('contract-pdfs')
-                        .upload(path, file, { upsert: true, contentType: 'application/pdf', cacheControl: '3600' });
-                    if (error) {
-                        console.warn('Supabase PDF upload failed:', error.message || error);
-                    } else {
-                        console.log('✓ تم رفع PDF للسحابة:', path);
-                    }
+                console.warn('savePdfBlob failed', e);
+                pdfDbPromise = null;
+                try {
+                    const db2 = await openPdfDb();
+                    return await new Promise(function(resolve, reject) {
+                        const tx = db2.transaction(PDF_STORE, 'readwrite');
+                        tx.objectStore(PDF_STORE).put({
+                            contractNumber: String(contractNumber),
+                            blob: blob,
+                            fileName: fileName || (contractNumber + '.pdf'),
+                            savedAt: new Date().toISOString()
+                        });
+                        tx.oncomplete = function() { resolve(true); };
+                        tx.onerror = function() { reject(tx.error); };
+                    });
+                } catch (e2) {
+                    console.warn('savePdfBlob retry failed', e2);
+                    return false;
                 }
-            } catch (e) {
-                console.warn('savePdfBlob cloud failed', e);
             }
-            return localOk;
         }
 
         async function getPdfRecord(contractNumber) {
             try {
-                const n = String(contractNumber || '').trim();
+                const n = String(contractNumber || '');
                 if (!n) return null;
+                let db;
+                try { db = await openPdfDb(); }
+                catch (e1) { pdfDbPromise = null; db = await openPdfDb(); }
 
-                // أ) من IndexedDB المحلي
-                try {
-                    const db = await openPdfDb();
-                    const keys = [];
-                    if (n) keys.push(n);
-                    if (/^DG-/i.test(n)) keys.push(n.replace(/^DG-/i, ''));
-                    else if (/^\d{2,8}$/.test(n)) keys.push('DG-' + n);
-                    const c = (typeof allContracts !== 'undefined')
-                        ? allContracts.find(function(x) { return String(x.contractNumber) === n; })
-                        : null;
-                    if (c) {
-                        if (c.dagalRawNumber) {
-                            keys.push(String(c.dagalRawNumber));
-                            keys.push('DG-' + c.dagalRawNumber);
-                        }
-                        if (c.fileName) keys.push(c.fileName);
+                const keys = [];
+                if (n) keys.push(n);
+                if (/^DG-/i.test(n)) keys.push(n.replace(/^DG-/i, ''));
+                else if (/^\d{2,8}$/.test(n)) keys.push('DG-' + n);
+                const c = (typeof allContracts !== 'undefined')
+                    ? allContracts.find(function(x) { return String(x.contractNumber) === n; })
+                    : null;
+                if (c) {
+                    if (c.dagalRawNumber) {
+                        keys.push(String(c.dagalRawNumber));
+                        keys.push('DG-' + c.dagalRawNumber);
                     }
-                    const seen = {};
-                    const uniq = [];
-                    keys.forEach(function(k) {
-                        if (k && !seen[k]) { seen[k] = 1; uniq.push(k); }
-                    });
-                    for (let i = 0; i < uniq.length; i++) {
-                        const key = uniq[i];
-                        const rec = await new Promise(function(resolve, reject) {
+                    if (c.fileName) keys.push(c.fileName);
+                }
+                const seen = {};
+                const uniq = [];
+                keys.forEach(function(k) {
+                    if (k && !seen[k]) { seen[k] = 1; uniq.push(k); }
+                });
+
+                async function readKey(key) {
+                    try {
+                        return await new Promise(function(resolve, reject) {
+                            const tx = db.transaction(PDF_STORE, 'readonly');
+                            const req = tx.objectStore(PDF_STORE).get(String(key));
+                            req.onsuccess = function() { resolve(req.result || null); };
+                            req.onerror = function() { reject(req.error); };
+                            tx.onerror = function() { reject(tx.error); };
+                        });
+                    } catch (err) {
+                        pdfDbPromise = null;
+                        db = await openPdfDb();
+                        return await new Promise(function(resolve, reject) {
                             const tx = db.transaction(PDF_STORE, 'readonly');
                             const req = tx.objectStore(PDF_STORE).get(String(key));
                             req.onsuccess = function() { resolve(req.result || null); };
                             req.onerror = function() { reject(req.error); };
                         });
-                        if (rec && rec.blob) return rec;
                     }
-                } catch (localErr) {
-                    console.warn('getPdfRecord local failed', localErr);
                 }
 
-                // ب) من Supabase Storage (للجوال والأجهزة الأخرى)
-                if (typeof supabase !== 'undefined' && supabase && supabaseReady) {
-                    const candidates = [n];
-                    if (/^DG-/i.test(n)) candidates.push(n.replace(/^DG-/i, ''));
-                    else if (/^\d{2,8}$/.test(n)) candidates.push('DG-' + n);
-                    for (let i = 0; i < candidates.length; i++) {
-                        const safeKey = String(candidates[i]).replace(/[\/\\?#%]+/g, '_');
-                        const path = safeKey + '.pdf';
-                        try {
-                            const { data, error } = await supabase.storage
-                                .from('contract-pdfs')
-                                .download(path);
-                            if (!error && data) {
-                                // خزّن محلياً للمرات القادمة
-                                try {
-                                    const db = await openPdfDb();
-                                    await new Promise(function(resolve) {
-                                        const tx = db.transaction(PDF_STORE, 'readwrite');
-                                        tx.objectStore(PDF_STORE).put({
-                                            contractNumber: n,
-                                            blob: data,
-                                            fileName: path,
-                                            savedAt: new Date().toISOString(),
-                                            fromCloud: true
-                                        });
-                                        tx.oncomplete = function() { resolve(true); };
-                                        tx.onerror = function() { resolve(false); };
-                                    });
-                                } catch (cacheErr) { /* ignore */ }
-                                return {
-                                    contractNumber: n,
-                                    blob: data,
-                                    fileName: path,
-                                    fromCloud: true
-                                };
-                            }
-                        } catch (dlErr) {
-                            console.warn('Supabase PDF download failed for', path, dlErr);
-                        }
-                    }
+                for (let i = 0; i < uniq.length; i++) {
+                    const rec = await readKey(uniq[i]);
+                    if (rec && rec.blob && rec.blob instanceof Blob && rec.blob.size > 0) return rec;
                 }
                 return null;
             } catch (e) {
                 console.warn('getPdfRecord failed', e);
+                pdfDbPromise = null;
                 return null;
             }
         }
 
         async function deletePdfBlob(contractNumber) {
-            const num = String(contractNumber || '').trim();
-            let ok = false;
             try {
                 const db = await openPdfDb();
-                await new Promise((resolve) => {
+                return new Promise(function(resolve) {
                     const tx = db.transaction(PDF_STORE, 'readwrite');
-                    tx.objectStore(PDF_STORE).delete(num);
-                    tx.oncomplete = () => resolve(true);
-                    tx.onerror = () => resolve(false);
+                    tx.objectStore(PDF_STORE).delete(String(contractNumber));
+                    tx.oncomplete = function() { resolve(true); };
+                    tx.onerror = function() { pdfDbPromise = null; resolve(false); };
                 });
-                ok = true;
-            } catch (e) { /* ignore */ }
-            try {
-                if (typeof supabase !== 'undefined' && supabase && supabaseReady && num) {
-                    const safeKey = num.replace(/[\/\\?#%]+/g, '_');
-                    await supabase.storage.from('contract-pdfs').remove([safeKey + '.pdf']);
-                }
             } catch (e) {
-                console.warn('deletePdfBlob cloud failed', e);
+                pdfDbPromise = null;
+                return false;
             }
-            return ok;
+        }
+
+        /** تحويل الملف المختار إلى Blob ثابت يُحفظ في IndexedDB بشكل موثوق على الجوال */
+        async function fileToStoredBlob(file) {
+            if (!file) return null;
+            try {
+                var buf = await file.arrayBuffer();
+                return new Blob([buf], { type: 'application/pdf' });
+            } catch (e1) {
+                try {
+                    return await new Promise(function (resolve, reject) {
+                        var reader = new FileReader();
+                        reader.onload = function () {
+                            resolve(new Blob([reader.result], { type: 'application/pdf' }));
+                        };
+                        reader.onerror = function () { reject(reader.error); };
+                        reader.readAsArrayBuffer(file);
+                    });
+                } catch (e2) {
+                    // آخر محاولة: استخدام الملف كما هو
+                    if (file instanceof Blob) return file;
+                    return null;
+                }
+            }
+        }
+
+        /** اختيار ملف PDF من الملفات على الجهاز فقط (بدون واتساب) */
+        function pickPdfFromDevice(contractNumber) {
+            return new Promise(function (resolve) {
+                try {
+                    var input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'application/pdf,.pdf';
+                    // بدون capture — يفتح مدير الملفات العادي
+                    input.style.cssText = 'position:fixed;left:0;top:0;opacity:0;width:1px;height:1px;z-index:99999;';
+                    document.body.appendChild(input);
+                    var done = false;
+                    function finish(file) {
+                        if (done) return;
+                        done = true;
+                        setTimeout(function () {
+                            try { input.remove(); } catch (e) {}
+                        }, 300);
+                        resolve(file || null);
+                    }
+                    input.addEventListener('change', function () {
+                        var f = (input.files && input.files[0]) ? input.files[0] : null;
+                        finish(f);
+                    });
+                    try {
+                        input.addEventListener('cancel', function () { finish(null); });
+                    } catch (eC) {}
+                    // تأخير بسيط ثم فتح المنتقي (أفضل على بعض متصفحات الجوال)
+                    setTimeout(function () {
+                        try { input.click(); } catch (eClick) { finish(null); }
+                    }, 50);
+                } catch (err) {
+                    resolve(null);
+                }
+            });
+        }
+
+        /** بحث موسّع عن PDF المحفوظ محلياً في IndexedDB */
+        async function findPdfRecordAnywhere(contractNumber) {
+            const n = String(contractNumber || '').trim();
+            if (!n) return null;
+            let rec = await getPdfRecord(n);
+            if (rec && rec.blob && rec.blob.size > 0) return rec;
+            try {
+                const db = await openPdfDb();
+                const all = await new Promise(function (resolve) {
+                    const tx = db.transaction(PDF_STORE, 'readonly');
+                    const req = tx.objectStore(PDF_STORE).getAll();
+                    req.onsuccess = function () { resolve(req.result || []); };
+                    req.onerror = function () { resolve([]); };
+                });
+                const c = (allContracts || []).find(function (x) { return String(x.contractNumber) === n; });
+                const digits = n.replace(/\D/g, '');
+                rec = all.find(function (r) {
+                    if (!r || !r.blob || !(r.blob instanceof Blob) || r.blob.size === 0) return false;
+                    const key = String(r.contractNumber || '');
+                    const fn = String(r.fileName || '');
+                    if (key === n) return true;
+                    if (digits && key.replace(/\D/g, '') === digits) return true;
+                    if (digits && fn.indexOf(digits) >= 0) return true;
+                    if (fn.indexOf(n) >= 0) return true;
+                    if (c && c.fileName && fn === c.fileName) return true;
+                    if (c && c.dagalRawNumber) {
+                        const d = String(c.dagalRawNumber);
+                        if (key.indexOf(d) >= 0 || fn.indexOf(d) >= 0) return true;
+                    }
+                    if (key.indexOf(n) >= 0 || n.indexOf(key) >= 0) return true;
+                    return false;
+                }) || null;
+            } catch (eScan) {
+                console.warn('findPdfRecordAnywhere failed', eScan);
+                pdfDbPromise = null;
+            }
+            return rec;
+        }
+
+        function displayPdfBlob(blob, fileName, previewWin) {
+            if (!blob || !(blob instanceof Blob) || blob.size === 0) return false;
+            if (!blob.type || blob.type.indexOf('pdf') < 0) {
+                blob = new Blob([blob], { type: 'application/pdf' });
+            }
+            const url = URL.createObjectURL(blob);
+            const safeName = String(fileName || 'contract.pdf').replace(/[<>:"/\\|?*]/g, '_');
+            var opened = false;
+            var isMobile = false;
+            try {
+                isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+            } catch (eM) {}
+
+            if (previewWin && !previewWin.closed) {
+                try {
+                    previewWin.document.open();
+                    previewWin.document.write(
+                        '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+                        '<title>' + safeName + '</title>' +
+                        '<style>html,body{margin:0;height:100%;overflow:hidden;background:#525659;} embed,iframe{border:0;width:100%;height:100%;}</style></head>' +
+                        '<body><embed src="' + url + '" type="application/pdf" width="100%" height="100%"/>' +
+                        '<div style="position:fixed;top:8px;left:8px;z-index:9;">' +
+                        '<a href="' + url + '" download="' + safeName + '" style="background:#0f766e;color:#fff;padding:6px 12px;border-radius:6px;text-decoration:none;font-family:Tahoma;font-size:13px;">تنزيل PDF</a>' +
+                        '</div></body></html>'
+                    );
+                    previewWin.document.close();
+                    opened = true;
+                } catch (eEmb) {
+                    try {
+                        previewWin.location.href = url;
+                        opened = true;
+                    } catch (eLoc) {
+                        try { previewWin.close(); } catch (e) {}
+                        previewWin = null;
+                    }
+                }
+            }
+
+            if (!opened) {
+                const a = document.createElement('a');
+                a.href = url;
+                a.target = '_blank';
+                a.rel = 'noopener';
+                if (!isMobile) a.download = safeName;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(function () { try { a.remove(); } catch (e) {} }, 1000);
+                opened = true;
+            }
+
+            setTimeout(function () {
+                try { URL.revokeObjectURL(url); } catch (e) {}
+            }, 30 * 60 * 1000);
+            return opened;
+        }
+
+        /** حفظ الملف المختار وربطه برقم العقد مع التحقق من نجاح الحفظ */
+        async function attachAndSavePdf(contractNumber, file) {
+            const n = String(contractNumber || '').trim();
+            if (!n || !file) return null;
+            const blob = await fileToStoredBlob(file);
+            if (!blob || blob.size === 0) {
+                showAlert('تعذر قراءة ملف PDF المختار', 'error');
+                return null;
+            }
+            const fileName = (file.name || (n + '.pdf')).replace(/[<>:"/\\|?*]/g, '_');
+            var saved = false;
+            try {
+                saved = await savePdfBlob(n, blob, fileName);
+            } catch (eSave) {
+                console.warn('savePdfBlob error', eSave);
+                saved = false;
+            }
+            // تحقق أن الحفظ نجح فعلاً
+            var verify = null;
+            try {
+                verify = await getPdfRecord(n);
+            } catch (eV) {}
+            if (!verify || !verify.blob || verify.blob.size === 0) {
+                // محاولة ثانية
+                try {
+                    await savePdfBlob(n, blob, fileName);
+                    verify = await getPdfRecord(n);
+                } catch (e2) {}
+            }
+            if (verify && verify.blob && verify.blob.size > 0) {
+                saved = true;
+            }
+            // تحديث بيانات العقد
+            try {
+                const c = (allContracts || []).find(function (x) { return String(x.contractNumber) === n; });
+                if (c) {
+                    c.fileName = fileName;
+                    c.hasPdf = true;
+                    c.updatedAt = Date.now();
+                    if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+                }
+            } catch (eC) {}
+            if (!saved) {
+                showAlert('تعذر حفظ الملف في المتصفح — سيتم فتحه الآن فقط دون حفظ دائم', 'error');
+                return { contractNumber: n, blob: blob, fileName: fileName, saved: false };
+            }
+            showAlert('تم حفظ ملف PDF وربطه بالعقد ✓', 'success');
+            return { contractNumber: n, blob: (verify && verify.blob) ? verify.blob : blob, fileName: fileName, saved: true };
         }
 
         async function openSavedPdf(contractNumber) {
             try {
                 const n = String(contractNumber || '').trim();
                 if (!n) { showAlert('رقم العقد غير صالح', 'error'); return; }
-                let rec = await getPdfRecord(n);
-                if (!rec || !rec.blob) {
+
+                var isMobile = false;
+                try {
+                    isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+                } catch (eM) {}
+
+                // 1) بحث في المحفوظات أولاً
+                let rec = await findPdfRecordAnywhere(n);
+
+                // 2) إن لم يوجد — اختيار ملف من الجهاز ثم حفظه
+                if (!rec || !rec.blob || !(rec.blob instanceof Blob) || rec.blob.size === 0) {
+                    showAlert('لا يوجد PDF محفوظ لهذا العقد — اختر الملف من الملفات على جهازك', 'info');
+                    const file = await pickPdfFromDevice(n);
+                    if (!file) {
+                        showAlert('لم يتم اختيار ملف', 'info');
+                        return;
+                    }
+                    rec = await attachAndSavePdf(n, file);
+                    if (!rec || !rec.blob) return;
+                }
+
+                // 3) فتح الملف
+                // على الجوال: لا نفتح نافذة فارغة مسبقاً (تسبب ارتباكاً) — نفتح مباشرة بعد الحفظ
+                var previewWin = null;
+                if (!isMobile) {
                     try {
-                        const db = await openPdfDb();
-                        const all = await new Promise(function(resolve) {
-                            const tx = db.transaction(PDF_STORE, 'readonly');
-                            const req = tx.objectStore(PDF_STORE).getAll();
-                            req.onsuccess = function() { resolve(req.result || []); };
-                            req.onerror = function() { resolve([]); };
-                        });
-                        const c = (allContracts || []).find(function(x) { return String(x.contractNumber) === n; });
-                        rec = all.find(function(r) {
-                            if (!r) return false;
-                            const key = String(r.contractNumber || '');
-                            if (key === n) return true;
-                            if (c && c.fileName && r.fileName === c.fileName) return true;
-                            if (c && c.dagalRawNumber && key.indexOf(String(c.dagalRawNumber)) >= 0) return true;
-                            if (key.indexOf(n) >= 0 || n.indexOf(key) >= 0) return true;
-                            return false;
-                        }) || null;
-                    } catch (eScan) { console.warn('openSavedPdf scan failed', eScan); }
+                        previewWin = window.open('', '_blank');
+                    } catch (eOpen) {
+                        previewWin = null;
+                    }
                 }
-                if (!rec || !rec.blob) {
-                    showAlert('لا يوجد ملف PDF محفوظ لهذا العقد. ارفع الملف مرة أخرى.', 'error');
-                    return;
+
+                const ok = displayPdfBlob(rec.blob, rec.fileName || (n + '.pdf'), previewWin);
+                if (!ok) {
+                    showAlert('تعذر عرض PDF — جرّب زر «تنزيل»', 'error');
                 }
-                const url = URL.createObjectURL(rec.blob);
-                const w = window.open(url, '_blank');
-                if (!w) {
-                    const a = document.createElement('a');
-                    a.href = url; a.target = '_blank'; a.rel = 'noopener';
-                    document.body.appendChild(a); a.click(); a.remove();
-                }
-                setTimeout(function() { try { URL.revokeObjectURL(url); } catch (e) {} }, 120000);
             } catch (err) {
                 console.error('openSavedPdf error', err);
                 showAlert('تعذر فتح ملف PDF: ' + (err && err.message ? err.message : err), 'error');
@@ -1658,19 +2083,39 @@
         }
 
         async function downloadSavedPdf(contractNumber) {
-            const rec = await getPdfRecord(contractNumber);
-            if (!rec || !rec.blob) {
-                showAlert('لا يوجد ملف PDF محفوظ لهذا العقد.', 'error');
-                return;
+            try {
+                const n = String(contractNumber || '').trim();
+                let rec = await findPdfRecordAnywhere(n);
+                if (!rec || !rec.blob || !(rec.blob instanceof Blob) || rec.blob.size === 0) {
+                    showAlert('لا يوجد PDF محفوظ — اختر الملف من الملفات على جهازك', 'info');
+                    const file = await pickPdfFromDevice(n);
+                    if (!file) {
+                        showAlert('لم يتم اختيار ملف', 'info');
+                        return;
+                    }
+                    rec = await attachAndSavePdf(n, file);
+                    if (!rec || !rec.blob) return;
+                }
+                var blob = rec.blob;
+                if (!blob.type || blob.type.indexOf('pdf') < 0) {
+                    blob = new Blob([blob], { type: 'application/pdf' });
+                }
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = rec.fileName || (n + '.pdf');
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(function() {
+                    try { URL.revokeObjectURL(url); } catch (e) {}
+                }, 5 * 60 * 1000);
+                showAlert('تم تنزيل ملف PDF', 'success');
+            } catch (err) {
+                console.error('downloadSavedPdf error', err);
+                showAlert('تعذر تنزيل ملف PDF: ' + (err && err.message ? err.message : err), 'error');
             }
-            const url = URL.createObjectURL(rec.blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = rec.fileName || (contractNumber + '.pdf');
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 3000);
         }
 
         /** دمج حقول مستخرجة من PDF في عقد موجود */
@@ -1699,13 +2144,8 @@
 
             // —— تحديث إجباري عند الضغط على «تحديث» للحقول المستخرجة من PDF ——
             if (forceUpdate) {
-                // لا تستبدل اسم عميل صالح بعنوان من ترويسة PDF (مثل المركز الوطني للنفايات)
-                if (!isEmpty(contract.customerName) && contract.customerName !== 'غير معروف'
-                    && !(typeof isBadCustomerName === 'function' && isBadCustomerName(contract.customerName))) {
-                    if (isEmpty(existing.customerName) || (typeof isBadCustomerName === 'function' && isBadCustomerName(existing.customerName))) {
-                        existing.customerName = contract.customerName;
-                    }
-                    // إن كان الاسم الحالي صالحاً: لا تمسّه أثناء التحديث
+                if (!isEmpty(contract.customerName) && contract.customerName !== 'غير معروف') {
+                    existing.customerName = contract.customerName;
                 }
                 if (!isEmpty(contract.commercialRegistry)) existing.commercialRegistry = contract.commercialRegistry;
                 if (!isEmpty(contract.commercialActLicense)) existing.commercialActLicense = contract.commercialActLicense;
@@ -1885,11 +2325,7 @@
                              'commercialActLicense','totalArea','binSize','coordinates','mapUrl',
                              'oldStartDate','oldEndDate','customerName','commercialRegistry','phone','email'].forEach(function(k) {
                                 if (parsed2[k] && (!parsed[k] || parsed[k] === '' || parsed[k] === 'غير معروف')) {
-                                    if (k === 'customerName' && typeof isBadCustomerName === 'function' && isBadCustomerName(parsed2[k])) {
-                                        /* تجاهل أسماء ترويسة PDF */
-                                    } else {
-                                        parsed[k] = parsed2[k];
-                                    }
+                                    parsed[k] = parsed2[k];
                                 } else if (k === 'isicClassification' && parsed2[k] && String(parsed2[k]).length > String(parsed[k]||'').length) {
                                     parsed[k] = parsed2[k];
                                 } else if ((k === 'district' || k === 'location') && parsed2[k] && !parsed.district && !parsed.location) {
@@ -2103,24 +2539,6 @@
             window.refreshContractFromSavedPdf = refreshContractFromSavedPdf;
         } catch (eWin) {}
 
-        async function refreshFromSupabase() {
-            console.log('🔄 تحديث البيانات من Supabase...');
-            if (!supabaseReady || !supabase) {
-                showAlert('Supabase غير متصل. حاول لاحقاً.', 'warning');
-                return;
-            }
-            
-            try {
-                showAlert('جاري التحديث...', 'info');
-                await loadContractsFromSupabase();
-                showAlert('✅ تم التحديث من السحابة بنجاح!', 'success');
-                console.log('✅ تم تحديث', allContracts.length, 'عقد من Supabase');
-            } catch (e) {
-                console.error('❌ خطأ في التحديث:', e);
-                showAlert('❌ خطأ في التحديث. تحقق من الاتصال.', 'error');
-            }
-        }
-
         async function refreshAllFromSavedPdfs() {
             if (!allContracts.length) {
                 showAlert('لا توجد عقود', 'error');
@@ -2226,16 +2644,6 @@
 
         window.addEventListener('load', () => {
             try { loadFromLocalStorage(); } catch(e) { console.error(e); allContracts = []; }
-            try { initSupabase(); } catch(e) { console.warn('Supabase initialization failed:', e); }
-            // تحديث من Supabase بعد تأخير قصير للتأكد من الاتصال
-            setTimeout(function() {
-                try { 
-                    if (supabaseReady && supabase) {
-                        console.log('🔄 تحديث من Supabase عند التحميل...');
-                        loadContractsFromSupabase();
-                    }
-                } catch(e) { console.warn('Failed to load from Supabase:', e); }
-            }, 1500);
             try { applyCustomBinPrices(); } catch(e) {}
             try { renderBinTypes(); } catch(e) {}
             // القوائم مخفية افتراضياً — تُفتح فقط بكلمة سر عبر «عرض القائمة»
@@ -2512,12 +2920,6 @@
                             allContracts.push(contract);
                             existingNums.add(contract.contractNumber);
                             successCount++;
-                            // رفع فوري للسحابة (مع الإحداثيات) حتى تظهر على الخريطة من أي جهاز
-                            try {
-                                if (typeof saveToSupabase === 'function') {
-                                    saveToSupabase(contract).catch(function() {});
-                                }
-                            } catch (eUp1) {}
                             const flagged = getFlaggedClient(contract.commercialRegistry);
                             if (flagged) flaggedFound.push({ contractNumber: contract.contractNumber, ...flagged });
                             // حفظ ملف PDF الأصلي في IndexedDB لإعادة فتحه لاحقاً
@@ -2566,8 +2968,8 @@
                                                 if (badOld || String(nv).length >= String(ov).length) existing[k] = nv;
                                             } else if (k === 'district' || k === 'location') {
                                                 if (empty || !isValidDistrictName(ov)) existing[k] = nv;
-                                            } else if (k === 'customerName' && (empty || ov === 'غير معروف' || (typeof isBadCustomerName === 'function' && isBadCustomerName(ov)))) {
-                                                if (!(typeof isBadCustomerName === 'function' && isBadCustomerName(nv))) existing[k] = nv;
+                                            } else if (k === 'customerName' && (empty || ov === 'غير معروف')) {
+                                                existing[k] = nv;
                                             } else if (k === 'quantity') {
                                                 // حدّث العدد دائماً من إعادة الاستخراج إذا تغيّر
                                                 const nq = parseInt(nv, 10), oq = parseInt(ov, 10);
@@ -3031,10 +3433,6 @@
             if (/تصنيف|آيزك|الأيزك|الآيزك|\bISIC\b|Classification/i.test(n)) return true;
             if (/^الحي$|^البلدية$|بيانات\s*المنتج|بيانات\s*الناقل|Producer\s*Commercial|Commercial\s*Name/i.test(n)) return true;
             if (/عقد\s*جمع\s*النفايات|Waste\s*Collection/i.test(n)) return true;
-            // عناوين رسمية تظهر في ترويسة PDF بلدي وليست اسم عميل
-            if (/المركز\s*الوطني\s*(لـ)?(إدارة\s*)?النفايات|National\s*Waste|MWAN|منصة\s*بلدي|بوابة\s*بلدي|وزارة\s*الشؤون\s*البلدية|أمانة\s*منطقة|الهيئة\s*السعودية/i.test(n)) return true;
-            if (/^(الأمانة|البلدية|الأمانه)\s*$/i.test(n)) return true;
-            if (/^الأمانة\s*MWAN/i.test(n) || /MWAN\s*الأمانة/i.test(n)) return true;
             return false;
         }
 
@@ -4175,17 +4573,8 @@
                 const q = mapUrl.match(/[?&]q=([0-9.\-]+),([0-9.\-]+)/)
                     || mapUrl.match(/@([0-9.\-]+),([0-9.\-]+)/)
                     || mapUrl.match(/!3d([0-9.\-]+)!4d([0-9.\-]+)/)
-                    || mapUrl.match(/3d([0-9.\-]+)!4d([0-9.\-]+)/)
-                    || mapUrl.match(/destination=([0-9.\-]+),([0-9.\-]+)/)
-                    || mapUrl.match(/ll=([0-9.\-]+),([0-9.\-]+)/)
-                    || mapUrl.match(/query=([0-9.\-]+)%2C([0-9.\-]+)/i)
-                    || mapUrl.match(/query=([0-9.\-]+),([0-9.\-]+)/i);
+                    || mapUrl.match(/destination=([0-9.\-]+),([0-9.\-]+)/);
                 if (q) trySetCoords(q[1], q[2]);
-            }
-            // روابط مختصرة أو نص فيه lat/lng مفصول
-            if (!coordinates) {
-                m = t.match(/(?:lat|latitude|خط\s*العرض)[^0-9\-]{0,12}([0-9]{2}\.\d{3,8})[^0-9\-]{0,20}(?:lng|lon|longitude|خط\s*الطول)[^0-9\-]{0,12}([0-9]{2}\.\d{3,8})/i);
-                if (m) trySetCoords(m[1], m[2]);
             }
             // geo: URI
             if (!coordinates) {
@@ -5789,7 +6178,7 @@
                     : '';
                 return `
                     <tr class="${st.rowClass}" data-num="${c.contractNumber}"${flaggedClient ? ' style="background:#fef2f2;"' : ''}>
-                        <td><strong style="font-size:0.95em;">${c.contractNumber}</strong></td>
+                        <td><span class="row-tab-start" tabindex="0" data-row-start="1" title="بداية الصف — Tab للمتابعة">${c.contractNumber}</span></td>
                         <td><span class="cell-text wide ${nameCls}" title="${esc(nameShow)}">${esc(nameShow)}</span>${flaggedBadge}</td>
                         <td>${c.commercialRegistry || '-'}</td>
                         <td>${c.commercialActLicense || '-'}</td>
@@ -5797,25 +6186,26 @@
                         <td>${c.totalArea || '-'}</td>
                         <td><span class="cell-text" title="${esc(districtName)}">${esc(districtName)}</span></td>
                         <td>${mapVal
-                            ? `<a href="${esc(mapVal)}" target="_blank" rel="noopener" class="map-link-locked" style="color:#0f766e;font-weight:700;font-size:0.85em;" title="للتعديل: استخدم زر «تعديل» (تقرير التعديل)">خريطة</a>`
-                            : `<input type="text" placeholder="رابط أو إحداثيات" title="أدخل ثم Enter أو انقر خارج الحقل — لا يمكن التعديل لاحقاً إلا من زر تعديل" style="width:120px;padding:3px 5px;border:1px dashed #94a3b8;border-radius:4px;font-size:0.75em;direction:ltr;"
+                            ? `<a href="${esc(mapVal)}" target="_blank" rel="noopener" class="map-link-locked" tabindex="-1" style="color:#0f766e;font-weight:700;font-size:0.85em;" title="للتعديل: استخدم زر «تعديل» (تقرير التعديل)">خريطة</a>`
+                            : `<input type="text" class="row-edit-input" data-field="map" placeholder="رابط أو إحداثيات" title="أدخل ثم Enter أو انقر خارج الحقل — لا يمكن التعديل لاحقاً إلا من زر تعديل" style="width:120px;padding:3px 5px;border:1px dashed #94a3b8;border-radius:4px;font-size:0.75em;direction:ltr;"
                                 onkeydown="if(event.key==='Enter'){event.preventDefault();saveMapUrlOnce('${c.contractNumber}', this.value);}"
                                 onblur="saveMapUrlOnce('${c.contractNumber}', this.value)">`}</td>
                         <td style="direction:ltr;text-align:left;">${phoneVal
                             ? `<span title="للتعديل: استخدم زر «تعديل» (تقرير التعديل)">${esc(phoneVal)}</span>`
-                            : `<input type="text" placeholder="05xxxxxxxx" title="أدخل ثم Enter أو انقر خارج الحقل — لا يمكن التعديل لاحقاً إلا من زر تعديل" style="width:100px;padding:3px 5px;border:1px dashed #94a3b8;border-radius:4px;font-size:0.75em;direction:ltr;"
+                            : `<input type="text" class="row-edit-input" data-field="phone" placeholder="05xxxxxxxx" title="أدخل ثم Enter أو انقر خارج الحقل — لا يمكن التعديل لاحقاً إلا من زر تعديل" style="width:100px;padding:3px 5px;border:1px dashed #94a3b8;border-radius:4px;font-size:0.75em;direction:ltr;"
                                 onkeydown="if(event.key==='Enter'){event.preventDefault();savePhoneOnce('${c.contractNumber}', this.value);}"
                                 onblur="savePhoneOnce('${c.contractNumber}', this.value)">`}</td>
                         <td>${emailShow
-                            ? `<a class="mail-link" href="mailto:${esc(emailShow)}" title="للتعديل: استخدم زر «تعديل» (تقرير التعديل) — انقر لفتح البريد">${esc(emailShow)}</a>`
-                            : `<input type="text" placeholder="email@" title="أدخل ثم Enter أو انقر خارج الحقل — لا يمكن التعديل لاحقاً إلا من زر تعديل" style="width:130px;padding:3px 5px;border:1px dashed #94a3b8;border-radius:4px;font-size:0.75em;direction:ltr;"
+                            ? `<a class="mail-link" href="mailto:${esc(emailShow)}" tabindex="-1" title="للتعديل: استخدم زر «تعديل» (تقرير التعديل) — انقر لفتح البريد">${esc(emailShow)}</a>`
+                            : `<input type="text" class="row-edit-input" data-field="email" placeholder="email@" title="أدخل ثم Enter أو انقر خارج الحقل — لا يمكن التعديل لاحقاً إلا من زر تعديل" style="width:130px;padding:3px 5px;border:1px dashed #94a3b8;border-radius:4px;font-size:0.75em;direction:ltr;"
                                 onkeydown="if(event.key==='Enter'){event.preventDefault();saveEmailOnce('${c.contractNumber}', this.value);}"
                                 onblur="saveEmailOnce('${c.contractNumber}', this.value)">`}</td>
+                        <td>${c.notes ? `<span title="للتعديل: استخدم زر «تعديل» (تقرير التعديل)">${esc(c.notes)}</span>` : `<input type="text" class="row-edit-input" data-field="notes" placeholder="ملاحظة..." title="أدخل ثم Enter أو انقر خارج الحقل — لا يمكن التعديل لاحقاً إلا من زر تعديل" style="width:100px;padding:3px 5px;border:1px dashed #94a3b8;border-radius:4px;font-size:0.75em;direction:rtl;" onkeydown="if(event.key==='Enter'){event.preventDefault();saveNotesOnce('${c.contractNumber}', this.value);}" onblur="saveNotesOnce('${c.contractNumber}', this.value)">`}</td>
                         <td>${c.municipality || '-'}</td>
                         <td><span class="badge badge-size">${c.binSize || '-'}</span></td>
                         <td><span class="badge badge-size">${c.newBinSize || c.binSize || '-'}</span></td>
-                        <td style="text-align:center;font-weight:700;">${c.quantity || 1}</td>
-                        <td style="text-align:center;font-weight:700;">${c.newQuantity != null && c.newQuantity !== '' ? c.newQuantity : (c.quantity || 1)}</td>
+                        <td style="text-align:center;font-weight:700;">${(c.quantity === 0 || c.quantity === 'لم يحدد' || c.quantity == null || c.quantity === '') ? 'لم يحدد' : c.quantity}</td>
+                        <td style="text-align:center;font-weight:700;">${(function(){ var v = c.newQuantity; if(v!=null && v!=='') return (v==='لم يحدد'||v===0)?'لم يحدد':v; var o=c.quantity; return (o===0||o==='لم يحدد'||o==null||o==='')?'لم يحدد':o; })()}</td>
                         <td>${formatCurrency(c.pricePerUnit)}</td>
                         <td>${formatCurrency(c.newPricePerUnit != null ? c.newPricePerUnit : c.pricePerUnit)}</td>
                         <td><strong class="currency">${formatCurrency(value)}</strong></td>
@@ -5833,16 +6223,16 @@
                         <td style="text-align:center;font-weight:700;color:${creditor.amount > 0 ? '#16a34a' : '#64748b'};">${creditor.amount > 0 ? formatCurrency(creditor.amount) : '-'}</td>
                         <td>
                             <div class="action-buttons">
-                                <button class="btn-small btn-report" onclick="generateReport('${c.contractNumber}')" title="تقرير">تقرير</button>
-                                <button class="btn-small btn-pdf" onclick="openSavedPdf('${c.contractNumber}')" title="PDF">PDF</button>
-                                <button class="btn-small" style="background:#059669;color:white;" onclick="refreshContractFromSavedPdf('${c.contractNumber}')" title="تحديث">تحديث</button>
-                                <button class="btn-small" style="background:#6366f1;color:white;" onclick="downloadSavedPdf('${c.contractNumber}')" title="تنزيل">تنزيل</button>
-                                <button class="btn-small" style="background:#25D366;color:white;" onclick="sendWhatsApp('${c.contractNumber}')" title="واتساب">واتساب</button>
-                                <button class="btn-small" style="background:#d97706;color:white;" onclick="openEditContract('${c.contractNumber}')" title="تعديل">تعديل</button>
-                                <button class="btn-small" style="background:#0d9488;color:white;" onclick="openCompleteMissingForm('${c.contractNumber}')" title="استكمال الحقول الفارغة فقط">استكمال</button>
-                                ${debt.days > 0 && !c.debtStopped ? `<button class="btn-small" style="background:#b45309;color:white;" onclick="stopDebt('${c.contractNumber}')" title="إيقاف مديونية">إيقاف</button>` : ''}
-                                ${c.debtStopped ? `<button class="btn-small" style="background:#0891b2;color:white;" onclick="resumeDebt('${c.contractNumber}')" title="تفعيل مديونية">تفعيل</button>` : ''}
-                                <button class="btn-small btn-delete" onclick="deleteContract('${c.contractNumber}')" title="حذف">حذف</button>
+                                <button type="button" class="btn-small btn-report row-tab-btn" onclick="generateReport('${c.contractNumber}')" title="تقرير">تقرير</button>
+                                <button type="button" class="btn-small btn-pdf row-tab-btn" onclick="openSavedPdf('${c.contractNumber}')" title="PDF">PDF</button>
+                                <button type="button" class="btn-small row-tab-btn" style="background:#059669;color:white;" onclick="refreshContractFromSavedPdf('${c.contractNumber}')" title="تحديث">تحديث</button>
+                                <button type="button" class="btn-small row-tab-btn" style="background:#6366f1;color:white;" onclick="downloadSavedPdf('${c.contractNumber}')" title="تنزيل">تنزيل</button>
+                                <button type="button" class="btn-small row-tab-btn" style="background:#25D366;color:white;" onclick="sendWhatsApp('${c.contractNumber}')" title="واتساب">واتساب</button>
+                                <button type="button" class="btn-small row-tab-btn" style="background:#d97706;color:white;" onclick="openEditContract('${c.contractNumber}')" title="تعديل">تعديل</button>
+                                <button type="button" class="btn-small row-tab-btn" style="background:#0d9488;color:white;" onclick="openCompleteMissingForm('${c.contractNumber}')" title="استكمال الحقول الفارغة فقط">استكمال</button>
+                                ${debt.days > 0 && !c.debtStopped ? `<button type="button" class="btn-small row-tab-btn" style="background:#b45309;color:white;" onclick="stopDebt('${c.contractNumber}')" title="إيقاف مديونية">إيقاف</button>` : ''}
+                                ${c.debtStopped ? `<button type="button" class="btn-small row-tab-btn" style="background:#0891b2;color:white;" onclick="resumeDebt('${c.contractNumber}')" title="تفعيل مديونية">تفعيل</button>` : ''}
+                                <button type="button" class="btn-small btn-delete row-tab-btn" onclick="deleteContract('${c.contractNumber}')" title="حذف">حذف</button>
                             </div>
                         </td>
                     </tr>
@@ -5864,6 +6254,10 @@
             document.getElementById('paginationBottom').innerHTML = pagesHtml;
 
             updateStats(filteredContracts);
+            // ربط تنقل Tab/أسهم مباشرة على الحقول (مهم لمتصفح Edge)
+            if (typeof bindRowEditInputNav === 'function') {
+                try { bindRowEditInputNav(); } catch (e) {}
+            }
         }
 
         function goPage(delta) {
@@ -5881,6 +6275,330 @@
             pageSize = parseInt(document.getElementById('pageSizeSelect').value) || 20;
             currentPage = 1;
             renderTable(filteredContracts);
+        }
+
+        // ===== Tab: حقول الإدخال ثم أزرار الإجراءات في كل صف حتى آخر صف =====
+        function getTableFocusables() {
+            // بداية الصف (رقم العقد) → حقول الإدخال → أزرار الإجراءات → الصف التالي...
+            var nodes = document.querySelectorAll(
+                '#tableBody .row-tab-start, #tableBody input.row-edit-input:not([disabled]), #tableBody button.row-tab-btn:not([disabled])'
+            );
+            return Array.prototype.slice.call(nodes);
+        }
+        // توافق مع الاستدعاءات القديمة
+        function getTableEditInputs() { return getTableFocusables(); }
+
+        function markActiveRow(el) {
+            try {
+                var rows = document.querySelectorAll('#tableBody tr.row-focused');
+                for (var i = 0; i < rows.length; i++) rows[i].classList.remove('row-focused');
+                var tr = el && el.closest ? el.closest('#tableBody tr') : null;
+                if (tr) tr.classList.add('row-focused');
+            } catch (e) {}
+        }
+
+        function scrollTableFieldIntoView(el, goingDown) {
+            if (!el) return;
+            try {
+                el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
+                var rect = el.getBoundingClientRect();
+                var bottomSafe = 160;
+                var topSafe = 90;
+                if (goingDown || rect.bottom > window.innerHeight - bottomSafe) {
+                    var need = rect.bottom - (window.innerHeight - bottomSafe);
+                    if (need > 0) window.scrollBy(0, need + 40);
+                }
+                if (rect.top < topSafe) {
+                    window.scrollBy(0, rect.top - topSafe - 10);
+                }
+                var wrap = el.closest && el.closest('.table-wrapper');
+                if (wrap) {
+                    var wr = wrap.getBoundingClientRect();
+                    var er = el.getBoundingClientRect();
+                    if (er.right > wr.right - 8) wrap.scrollLeft += (er.right - wr.right + 24);
+                    if (er.left < wr.left + 8) wrap.scrollLeft -= (wr.left - er.left + 24);
+                }
+            } catch (err) {}
+        }
+
+        function focusTableEditInput(el, goingDown) {
+            if (!el) return;
+            scrollTableFieldIntoView(el, goingDown);
+            markActiveRow(el);
+            try {
+                el.focus({ preventScroll: true });
+            } catch (e) {
+                try { el.focus(); } catch (e2) {}
+            }
+            setTimeout(function () {
+                scrollTableFieldIntoView(el, goingDown);
+                markActiveRow(el);
+                if (document.activeElement !== el) {
+                    try { el.focus({ preventScroll: true }); } catch (e3) {
+                        try { el.focus(); } catch (e4) {}
+                    }
+                }
+            }, 40);
+        }
+
+        function isTableFocusable(t) {
+            if (!t || !t.closest || !t.closest('#tableBody')) return false;
+            if (t.matches && t.matches('.row-tab-start, input.row-edit-input, button.row-tab-btn')) return true;
+            var cls = String(t.className || '');
+            return cls.indexOf('row-tab-start') >= 0 || cls.indexOf('row-edit-input') >= 0 || cls.indexOf('row-tab-btn') >= 0;
+        }
+
+        function handleTableNavKey(e) {
+            if (e._tableNavHandled) return false;
+            var t = e.target;
+            if (!isTableFocusable(t)) return false;
+
+            var key = e.key || e.keyCode;
+            var isTab = (key === 'Tab' || key === 9);
+            var isDown = (key === 'ArrowDown' || key === 'Down' || key === 40);
+            var isUp = (key === 'ArrowUp' || key === 'Up' || key === 38);
+            if (!isTab && !isDown && !isUp) return false;
+
+            var list = getTableFocusables();
+            if (!list.length) return false;
+            var idx = list.indexOf(t);
+            if (idx < 0) return false;
+
+            if (isTab) {
+                e.preventDefault();
+                e.stopPropagation();
+                e._tableNavHandled = true;
+                var goingDown = !e.shiftKey;
+                var nextIdx = goingDown ? idx + 1 : idx - 1;
+                if (nextIdx >= 0 && nextIdx < list.length) {
+                    focusTableEditInput(list[nextIdx], goingDown);
+                } else if (goingDown) {
+                    focusTableEditInput(list[list.length - 1], true);
+                } else {
+                    focusTableEditInput(list[0], false);
+                }
+                return true;
+            }
+
+            if (isDown || isUp) {
+                // الأسهم: نفس العمود في الصف التالي/السابق (للحقول فقط)
+                if (t.tagName === 'BUTTON') {
+                    // من زر إجراءات: سهم لأسفل → أول عنصر في الصف التالي
+                    e.preventDefault();
+                    e._tableNavHandled = true;
+                    var rowB = t.closest('tr');
+                    var rowsB = Array.prototype.slice.call(document.querySelectorAll('#tableBody tr[data-num]'));
+                    var rB = rowsB.indexOf(rowB);
+                    var tRow = isDown ? rowsB[rB + 1] : rowsB[rB - 1];
+                    if (tRow) {
+                        var first = tRow.querySelector('.row-tab-start, input.row-edit-input, button.row-tab-btn');
+                        if (first) focusTableEditInput(first, isDown);
+                    }
+                    return true;
+                }
+                if (t.getAttribute && t.getAttribute('list')) return false;
+                var field = t.getAttribute('data-field') || '';
+                var row = t.closest('tr');
+                if (!row) return false;
+                var rows = Array.prototype.slice.call(document.querySelectorAll('#tableBody tr[data-num]'));
+                var rIdx = rows.indexOf(row);
+                if (rIdx < 0) return false;
+                var step = isDown ? 1 : -1;
+                var targetInp = null;
+                for (var ri = rIdx + step; isDown ? ri < rows.length : ri >= 0; ri += step) {
+                    if (field) {
+                        targetInp = rows[ri].querySelector('input.row-edit-input[data-field="' + field + '"]');
+                    }
+                    if (!targetInp) {
+                        // أول عنصر في الصف التالي: رقم العقد ثم الحقول
+                        targetInp = rows[ri].querySelector('.row-tab-start, input.row-edit-input, button.row-tab-btn');
+                    }
+                    if (targetInp) break;
+                }
+                if (targetInp) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e._tableNavHandled = true;
+                    focusTableEditInput(targetInp, isDown);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        (function setupTableTabFocusFix() {
+            // تمييز صف ثابت بالنقر/التاب — لا يختفي عند النقر بالماوس داخل نفس الصف
+            // النسخ يعمل لكل الحقول النصية (رقم العقد مثال فقط وكان يعمل مسبقاً)
+            window.__stickyRowFocus = null; // data-num للصف المميّز
+            window.__rowMouseDown = false;
+
+            function selectElementText(el) {
+                try {
+                    if (!el) return;
+                    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                        try { el.focus({ preventScroll: true }); } catch (e0) { try { el.focus(); } catch (e1) {} }
+                        try { el.select(); } catch (e2) {}
+                        return;
+                    }
+                    var range = document.createRange();
+                    range.selectNodeContents(el);
+                    var sel = window.getSelection();
+                    if (sel) {
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }
+                } catch (err) {}
+            }
+
+            function pickSelectableInCell(target, tr) {
+                if (!target || !tr) return null;
+                if (target.closest && target.closest('button, a.btn-small, .action-buttons')) return null;
+                // حقول الإدخال: تحديد قيمتها
+                if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return target;
+                var inp = target.closest && target.closest('input, textarea');
+                if (inp && tr.contains(inp)) return inp;
+                // عناصر نصية داخل الخلية
+                var el = target.closest && target.closest('.row-tab-start, .cell-text, .badge-status, .badge-size, .name-bad, .currency, .mail-link, span, strong, a');
+                if (el && tr.contains(el) && !(el.closest && el.closest('.action-buttons'))) return el;
+                // نص مباشر داخل td
+                var td = target.closest && target.closest('td');
+                if (td && tr.contains(td) && !(td.querySelector && td.querySelector('.action-buttons'))) {
+                    var inner = td.querySelector('.row-tab-start, .cell-text, .badge-status, .badge-size, .currency, span, strong, a');
+                    return inner || td;
+                }
+                return null;
+            }
+
+            function setStickyRow(tr) {
+                try {
+                    if (!tr) return;
+                    var num = tr.getAttribute('data-num');
+                    window.__stickyRowFocus = num != null ? String(num) : null;
+                    // أبقِ class التمييز دون إجبار التركيز على رقم العقد فقط
+                    var rows = document.querySelectorAll('#tableBody tr.row-focused');
+                    for (var i = 0; i < rows.length; i++) rows[i].classList.remove('row-focused');
+                    tr.classList.add('row-focused');
+                } catch (err) {}
+            }
+
+            document.addEventListener('keydown', function (e) {
+                handleTableNavKey(e);
+            }, true);
+
+            document.addEventListener('focusin', function (e) {
+                if (isTableFocusable(e.target)) {
+                    markActiveRow(e.target);
+                    var tr = e.target.closest && e.target.closest('#tableBody tr[data-num]');
+                    if (tr) {
+                        var num = tr.getAttribute('data-num');
+                        window.__stickyRowFocus = num != null ? String(num) : null;
+                    }
+                }
+            }, true);
+
+            document.addEventListener('focusout', function (e) {
+                // لا تُزل التمييز فوراً إن كان النقر داخل نفس الصف أو التركيز لا يزال في الجدول
+                setTimeout(function () {
+                    if (window.__rowMouseDown) return;
+                    var a = document.activeElement;
+                    if (a && a.closest && a.closest('#tableBody')) {
+                        if (isTableFocusable(a)) markActiveRow(a);
+                        return;
+                    }
+                    // خرج التركيز من الجدول: أبقِ تمييز الصف اللاصق (sticky)
+                    if (window.__stickyRowFocus) {
+                        var keep = document.querySelector('#tableBody tr[data-num="' + String(window.__stickyRowFocus).replace(/"/g, '') + '"]');
+                        if (keep) {
+                            var rows = document.querySelectorAll('#tableBody tr.row-focused');
+                            for (var i = 0; i < rows.length; i++) rows[i].classList.remove('row-focused');
+                            keep.classList.add('row-focused');
+                            return;
+                        }
+                    }
+                    var rows2 = document.querySelectorAll('#tableBody tr.row-focused');
+                    for (var j = 0; j < rows2.length; j++) rows2[j].classList.remove('row-focused');
+                }, 10);
+            }, true);
+
+            // نقر بالماوس على أي خلية في الصف: يبقي اللون + يحدد نص الحقل للنسخ
+            document.addEventListener('mousedown', function (e) {
+                var tr = e.target && e.target.closest && e.target.closest('#tableBody tr[data-num]');
+                if (!tr) return;
+                window.__rowMouseDown = true;
+                setStickyRow(tr);
+
+                // أزرار الإجراءات: لا تتدخل
+                if (e.target.closest && e.target.closest('button, .action-buttons')) return;
+
+                var start = e.target.closest && e.target.closest('.row-tab-start');
+                if (start) {
+                    // رقم العقد: تركيز + تحديد للنسخ دون القفز لحقل الإحداثيات
+                    try { start.focus({ preventScroll: true }); } catch (err) { try { start.focus(); } catch (e2) {} }
+                    selectElementText(start);
+                    e.preventDefault();
+                    return;
+                }
+
+                // حقول الإدخال: اترك السلوك الطبيعي (التركيز + التحديد لاحقاً عند النقر)
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || (e.target.closest && e.target.closest('input, textarea, select, a'))) {
+                    return;
+                }
+
+                // باقي الخلايا النصية: لا تفقد تمييز الصف — لا تنقل التركيز لحقل الإحداثيات
+                // (التمييز sticky يكفي؛ التحديد يتم في click)
+            }, true);
+
+            document.addEventListener('mouseup', function () {
+                window.__rowMouseDown = false;
+            }, true);
+
+            document.addEventListener('click', function (e) {
+                var tr = e.target && e.target.closest && e.target.closest('#tableBody tr[data-num]');
+                if (!tr) return;
+                setStickyRow(tr);
+
+                if (e.target.closest && e.target.closest('button, .action-buttons')) return;
+
+                var selectable = pickSelectableInCell(e.target, tr);
+                if (!selectable) return;
+
+                // تحديد نص الحقل المنقور عليه للنسخ (كل الحقول وليس رقم العقد فقط)
+                setTimeout(function () {
+                    selectElementText(selectable);
+                }, 0);
+            }, true);
+        })();
+
+        function bindRowEditInputNav() {
+            var starts = document.querySelectorAll('#tableBody .row-tab-start');
+            for (var s = 0; s < starts.length; s++) starts[s].setAttribute('tabindex', '0');
+            var inputs = document.querySelectorAll('#tableBody input.row-edit-input');
+            for (var i = 0; i < inputs.length; i++) inputs[i].setAttribute('tabindex', '0');
+            var btns = document.querySelectorAll('#tableBody button.row-tab-btn');
+            for (var j = 0; j < btns.length; j++) btns[j].setAttribute('tabindex', '0');
+        }
+
+        /** بعد إعادة رسم الجدول: ركّز على أول حقل إدخال في الصف التالي */
+        function focusNextRowInputAfter(contractNumber) {
+            try {
+                var rows = document.querySelectorAll('#tableBody tr[data-num]');
+                var found = false;
+                for (var i = 0; i < rows.length; i++) {
+                    if (!found) {
+                        if (String(rows[i].getAttribute('data-num')) === String(contractNumber)) found = true;
+                        continue;
+                    }
+                    var inp = rows[i].querySelector('input.row-edit-input');
+                    if (inp) {
+                        focusTableEditInput(inp);
+                        return true;
+                    }
+                }
+                // لا يوجد صف تالي — ركّز آخر حقل في الصفحة
+                var all = getTableEditInputs();
+                if (all.length) focusTableEditInput(all[all.length - 1]);
+            } catch (err) {}
+            return false;
         }
 
         function esc(s) {
@@ -5927,9 +6645,24 @@
             if (typeof priceTable !== 'undefined') {
                 Object.keys(priceTable).forEach(function(k) { analysis[k] = 0; });
             }
+            function isUndeterminedSize(v) {
+                var s = (v == null ? '' : String(v)).trim();
+                return !s || s === 'لم يحدد' || s === 'لم تحدد' || s === 'غير محدد' || s === 'غير محددة' || s === '-';
+            }
+            function sizeQty(v) {
+                if (v === 'لم يحدد' || v === 'لم تحدد' || v == null || v === '') return 0;
+                var n = Number(v);
+                return isNaN(n) ? 0 : n;
+            }
             (allContracts || []).forEach(function(c) {
-                const binType = c.binSize || 'غير محدد';
-                analysis[binType] = (analysis[binType] || 0) + (c.quantity || 0);
+                var binType = c.binSize || 'لم يحدد';
+                if (isUndeterminedSize(binType)) binType = 'لم يحدد';
+                analysis[binType] = (analysis[binType] || 0) + sizeQty(c.quantity);
+                if (isUndeterminedSize(c.newBinSize)) {
+                    var nq = sizeQty(c.newQuantity);
+                    if (nq === 0) nq = 1;
+                    analysis['لم يحدد'] = (analysis['لم يحدد'] || 0) + nq;
+                }
             });
 
             const analysisBox = document.getElementById('binsAnalysis');
@@ -5958,23 +6691,66 @@
                     + '</div>';
             }
 
-            const totalQty = (allContracts || []).reduce(function(s, c) { return s + (c.quantity || 0); }, 0);
+            const totalQty = (allContracts || []).reduce(function(s, c) {
+                var n = Number(c.quantity);
+                return s + (isNaN(n) ? 0 : n);
+            }, 0);
             let html = cardHtml('', totalQty, true);
             entries.forEach(function(pair) {
                 html += cardHtml(pair[0], pair[1], false);
             });
+            var undQtyContracts = 0;
+            (allContracts || []).forEach(function(c) {
+                var oq = c.quantity;
+                var nq = c.newQuantity;
+                var oldUnd = (oq === 'لم يحدد' || oq === 'لم تحدد' || oq === 0 || oq === '0');
+                var newUnd = (nq === 'لم يحدد' || nq === 'لم تحدد' || nq === 0 || nq === '0');
+                if (oldUnd || newUnd) undQtyContracts++;
+            });
+            var qtyActive = ((document.getElementById('filterQuantity') || {}).value || '') === 'لم يحدد';
+            html += '<div style="background:' + (qtyActive ? '#fef3c7' : 'white') + ';padding:10px;border:' + (qtyActive ? '2px solid #d97706' : '1px solid #f59e0b') + ';border-radius:6px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:pointer;"'
+                + " onclick=\"filterByQuantity('لم يحدد')\""
+                + ' title="عرض العقود التي عددها أو العدد الجديد: لم يحدد">'
+                + '<div style="font-size:0.85em;color:#92400e;margin-bottom:4px;">العدد: لم يحدد</div>'
+                + '<div style="font-size:1.4em;font-weight:700;color:#d97706;">' + undQtyContracts + '</div>'
+                + '<div style="font-size:0.75em;color:#b45309;margin-top:4px;">عقد</div>'
+                + '</div>';
             analysisBox.innerHTML = html;
         }
 
-        // فلترة حسب نوع الحاوية — الأيقونات تبقى ظاهرة
+        function filterByQuantity(qVal) {
+            var el = document.getElementById('filterQuantity');
+            if (!el) return;
+            if (!qVal) {
+                el.value = '';
+                applyFilters();
+                showAlert('تم عرض كل الأعداد', 'success');
+            } else {
+                el.value = qVal;
+                applyFilters();
+                showAlert('تم تطبيق فلتر العدد: ' + qVal, 'info');
+            }
+        }
+
+        // فلترة حسب نوع الحاوية — «عرض الكل» يمسح كل الفلاتر بما فيها العدد
         function filterByBinSize(binType) {
             const sizeEl = document.getElementById('filterSize');
             if (!sizeEl) return;
-            if (!binType || binType === 'غير محدد') {
-                sizeEl.value = '';
+            if (!binType) {
+                // صلاحيات كاملة كزر مسح الفلاتر: حجم + عدد + باقي الفلاتر
+                ['filterCustomer','filterSize','filterQuantity','filterStatus','filterLocation',
+                 'filterOldStartFrom','filterOldStartTo','filterOldEndFrom','filterOldEndTo',
+                 'filterNewStartFrom','filterNewStartTo','filterMonth','filterActivity',
+                 'filterAreaFrom','filterAreaTo'].forEach(function(id) {
+                    var el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+                var field = document.getElementById('filterMonthField');
+                if (field) field.value = 'oldStart';
                 applyFilters();
-                showAlert('تم عرض جميع أنواع الحاويات', 'success');
+                showAlert('تم عرض الكل ومسح جميع الفلاتر', 'success');
             } else {
+                if (binType === 'غير محدد' || binType === 'غير محددة' || binType === 'لم تحدد') binType = 'لم يحدد';
                 sizeEl.value = binType;
                 applyFilters();
                 showAlert('تم تطبيق فلتر: ' + binType, 'info');
@@ -5984,6 +6760,7 @@
         function applyFilters(keepPage) {
             const customer = document.getElementById('filterCustomer').value.toLowerCase().trim();
             const size = document.getElementById('filterSize').value;
+            const quantity = document.getElementById('filterQuantity') ? document.getElementById('filterQuantity').value : '';
             const areaFromEl = document.getElementById('filterAreaFrom');
             const areaToEl = document.getElementById('filterAreaTo');
             const areaFrom = areaFromEl && areaFromEl.value !== '' ? parseFloat(areaFromEl.value) : null;
@@ -6047,7 +6824,24 @@
                     if (!matches) return false;
                 }
                 
-                if (size && c.binSize !== size) return false;
+                if (size) {
+                    if (size === 'لم يحدد' || size === 'لم تحدد') {
+                        var bs = (c.binSize == null ? '' : String(c.binSize)).trim();
+                        var nbs = (c.newBinSize == null ? '' : String(c.newBinSize)).trim();
+                        var oldUndS = (!bs || bs === 'لم يحدد' || bs === 'لم تحدد' || bs === '-' || bs === 'غير محدد' || bs === 'غير محددة');
+                        var newUndS = (nbs === 'لم يحدد' || nbs === 'لم تحدد' || nbs === 'غير محدد' || nbs === 'غير محددة');
+                        if (!oldUndS && !newUndS) return false;
+                    } else if (String(c.binSize || '').trim() !== size) return false;
+                }
+                if (quantity) {
+                    if (quantity === 'لم يحدد' || quantity === 'لم تحدد') {
+                        var oq = c.quantity;
+                        var nq = c.newQuantity;
+                        var oldUnd = (oq === 'لم يحدد' || oq === 'لم تحدد' || oq === 0 || oq === '0');
+                        var newUnd = (nq === 'لم يحدد' || nq === 'لم تحدد' || nq === 0 || nq === '0');
+                        if (!oldUnd && !newUnd) return false;
+                    } else if (String(c.quantity || 1) !== quantity) return false;
+                }
                 if (areaFrom !== null || areaTo !== null) {
                     const areaVal = parseFloat(String(c.totalArea || '').replace(/[^0-9.]/g, ''));
                     if (isNaN(areaVal)) return false;
@@ -6112,7 +6906,7 @@
         }
 
         function clearAllFilters() {
-            ['filterCustomer','filterSize','filterStatus','filterLocation',
+            ['filterCustomer','filterSize','filterQuantity','filterStatus','filterLocation',
              'filterOldStartFrom','filterOldStartTo','filterOldEndFrom','filterOldEndTo',
              'filterNewStartFrom','filterNewStartTo','filterMonth','filterActivity',
              'filterAreaFrom','filterAreaTo'].forEach(id => {
@@ -6136,7 +6930,7 @@
             }
         }
 
-        ['filterCustomer','filterSize','filterStatus','filterLocation','filterActivity','filterOldStartFrom','filterOldStartTo','filterOldEndFrom','filterOldEndTo','filterNewStartFrom','filterNewStartTo','filterAreaFrom','filterAreaTo']
+        ['filterCustomer','filterSize','filterQuantity','filterStatus','filterLocation','filterActivity','filterOldStartFrom','filterOldStartTo','filterOldEndFrom','filterOldEndTo','filterNewStartFrom','filterNewStartTo','filterAreaFrom','filterAreaTo']
             .forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', applyFilters);
@@ -6203,6 +6997,7 @@
             saveToLocalStorage();
             if (typeof renderTable === 'function') renderTable(filteredContracts);
             showAlert('تم حفظ الجوال — أي تعديل لاحق من زر «تعديل» فقط', 'success');
+            setTimeout(function () { focusNextRowInputAfter(contractNumber); }, 30);
         }
 
         
@@ -6252,6 +7047,22 @@ function saveEmail(contractNumber, email) {
             saveToLocalStorage();
             if (typeof renderTable === 'function') renderTable(filteredContracts);
             showAlert('تم حفظ البريد كرابط — أي تعديل لاحق من زر «تعديل» فقط', 'success');
+            setTimeout(function () { focusNextRowInputAfter(contractNumber); }, 30);
+        }
+
+        function saveNotesOnce(contractNumber, notes) {
+            const c = allContracts.find(x => x.contractNumber === contractNumber);
+            if (!c) return;
+            let n = (notes || '').trim();
+            if (!n && !c.notes) return;
+            c.notes = n || '';
+            c.updatedAt = Date.now();
+            const f = filteredContracts.find(x => x.contractNumber === contractNumber);
+            if (f) f.notes = n || '';
+            saveToLocalStorage();
+            if (typeof renderTable === 'function') renderTable(filteredContracts);
+            if (n) showAlert('تم حفظ الملاحظة — أي تعديل لاحق من زر «تعديل» فقط', 'success');
+            setTimeout(function () { focusNextRowInputAfter(contractNumber); }, 30);
         }
 
         function saveDistrict(contractNumber, district) {
@@ -6425,8 +7236,17 @@ function saveEmail(contractNumber, email) {
                 if (/^[0-9.\-]+,[0-9.\-]+$/.test(mapUrl)) {
                     coordinates = mapUrl;
                     mapUrl = 'https://www.google.com/maps?q=' + coordinates;
-                } else if (!/^https?:\/\//i.test(mapUrl) && /google\.|maps\.|goo\.gl/i.test(mapUrl)) {
-                    mapUrl = 'https://' + mapUrl;
+                } else {
+                    if (!isValidGoogleMapsLink(mapUrl)) {
+                        showAlert('الرابط غير صحيح — يُقبل فقط رابط جوجل ماب بموقع داخل السعودية أو إحداثيات مثل 24.46,39.61', 'error');
+                        return;
+                    }
+                    if (!/^https?:\/\//i.test(mapUrl)) mapUrl = 'https://' + mapUrl;
+                    const q = mapUrl.match(/[?&]q=([0-9.\-]+),([0-9.\-]+)/)
+                        || mapUrl.match(/@([0-9.\-]+),([0-9.\-]+)/)
+                        || mapUrl.match(/!3d([0-9.\-]+)!4d([0-9.\-]+)/)
+                        || mapUrl.match(/3d([0-9.\-]+)!4d([0-9.\-]+)/);
+                    if (q) coordinates = q[1] + ',' + q[2];
                 }
             }
             const oldStart = g('manual_oldStartDate');
@@ -6612,8 +7432,17 @@ function saveEmail(contractNumber, email) {
                         c.coordinates = u;
                         c.mapUrl = 'https://www.google.com/maps?q=' + u;
                     } else {
-                        if (!/^https?:\/\//i.test(u) && /google\.|maps\.|goo\.gl/i.test(u)) u = 'https://' + u;
+                        if (!isValidGoogleMapsLink(u)) {
+                            showAlert('الرابط غير صحيح — يُقبل فقط رابط جوجل ماب بموقع داخل السعودية أو إحداثيات', 'error');
+                            throw new Error('mapUrl');
+                        }
+                        if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
                         c.mapUrl = u;
+                        const q = u.match(/[?&]q=([0-9.\-]+),([0-9.\-]+)/)
+                            || u.match(/@([0-9.\-]+),([0-9.\-]+)/)
+                            || u.match(/!3d([0-9.\-]+)!4d([0-9.\-]+)/)
+                            || u.match(/3d([0-9.\-]+)!4d([0-9.\-]+)/);
+                        if (q) c.coordinates = q[1] + ',' + q[2];
                     }
                     changes.push(label);
                     return;
@@ -6676,7 +7505,7 @@ function saveEmail(contractNumber, email) {
                 fill('oldStartDate', g('cm_oldStartDate'), 'بداية العقد');
                 fill('oldEndDate', g('cm_oldEndDate'), 'نهاية العقد');
             } catch (e) {
-                if (e && e.message === 'email') return;
+                if (e && (e.message === 'email' || e.message === 'mapUrl')) return;
                 console.error(e);
                 return;
             }
@@ -6761,8 +7590,20 @@ function saveEmail(contractNumber, email) {
                                 ${Object.keys(priceTable).map(k => '<option value="'+k+'"'+((c.newBinSize||c.binSize)===k?' selected':'')+'>'+k+'</option>').join('')}
                             </select>
                         </label>
-                        <label>العدد (القديم)<br><input id="edit_quantity" type="number" min="1" max="40" value="${c.quantity||1}" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;"></label>
-                        <label>العدد الجديد<br><input id="edit_newQuantity" type="number" min="1" max="99" value="${c.newQuantity != null && c.newQuantity !== '' ? c.newQuantity : (c.quantity||1)}" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;"></label>
+                        <label>العدد (القديم)<br>
+                            <input id="edit_quantity" type="number" min="1" max="40" value="${(c.quantity != null && c.quantity !== '' && c.quantity !== 'لم يحدد') ? c.quantity : 1}" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;">
+                        </label>
+                        <label>العدد الجديد<br>
+                            <select id="edit_newQuantity" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;">
+                                <option value="لم يحدد"${(c.newQuantity === 'لم يحدد' || c.newQuantity === 0 || c.newQuantity === '0') ? ' selected' : ''}>لم يحدد</option>
+                                ${[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99].map(n => {
+                                    var cur = null;
+                                    if (c.newQuantity != null && c.newQuantity !== '' && c.newQuantity !== 'لم يحدد') cur = Number(c.newQuantity);
+                                    else if (c.newQuantity == null || c.newQuantity === '') cur = (c.quantity != null && c.quantity !== '' && c.quantity !== 'لم يحدد') ? Number(c.quantity) : null;
+                                    return '<option value="'+n+'"'+(cur===n?' selected':'')+'>'+n+'</option>';
+                                }).join('')}
+                            </select>
+                        </label>
                         <label>السعر الجديد<br><input id="edit_newPricePerUnit" type="number" min="0" value="${c.newPricePerUnit != null ? c.newPricePerUnit : (c.pricePerUnit||0)}" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;direction:ltr;" onkeydown="handleTabInRow(event, 'edit_pricePerUnit')"></label>
                         <label>سعر الوحدة (القديم)${(c.source === 'PDF الدغل' || /^DG-/i.test(String(c.contractNumber||''))) ? ' — محمي (دغل)' : ' — محمي (بلدي)'}
                             <div style="display:flex;gap:6px;align-items:center;">
@@ -6790,6 +7631,10 @@ function saveEmail(contractNumber, email) {
                                 style="width:100%;padding:6px;border:1px solid #c4b5fd;border-radius:5px;font-family:inherit;background:#f5f3ff;"
                                 onkeydown="handleTabAtEnd(event)">
                         </label>
+                    </div>
+                    <div style="margin-top:12px;">
+                        <label style="display:block;font-weight:700;color:#334155;margin-bottom:4px;">الملاحظات</label>
+                        <textarea id="edit_notes" rows="3" placeholder="اكتب ملاحظة عن العقد..." style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-family:inherit;font-size:0.9em;resize:vertical;direction:rtl;">${(c.notes || '').replace(/</g,'&lt;')}</textarea>
                     </div>
                     <div style="margin-top:15px; border-top:1px solid #e2e8f0; padding-top:10px;">
                         <h3 style="font-size:1em; color:#0f766e; margin-bottom:5px;">📋 سجل الإجراءات (التعديلات)</h3>
@@ -7013,9 +7858,11 @@ function saveEmail(contractNumber, email) {
                 { id: 'edit_oldStartDate', key: 'oldStartDate', label: 'بداية العقد' },
                 { id: 'edit_oldEndDate', key: 'oldEndDate', label: 'نهاية العقد' },
                 { id: 'edit_newStartDate', key: 'newStartDate', label: 'بداية الجديد' },
-                { id: 'edit_newEndDate', key: 'newEndDate', label: 'نهاية الجديد' }
+                { id: 'edit_newEndDate', key: 'newEndDate', label: 'نهاية الجديد' },
+                { id: 'edit_notes', key: 'notes', label: 'الملاحظات' }
             ];
 
+            window.__mapUrlInvalid = false;
             fields.forEach(f => {
                 // تواريخ الجديد: لا تُحفظ إلا إذا فُتح التعديل بكلمة السر
                 if (f.key === 'newStartDate' || f.key === 'newEndDate') {
@@ -7023,10 +7870,30 @@ function saveEmail(contractNumber, email) {
                     if (el && el.readOnly) return;
                 }
                 let nv = g(f.id).trim();
-                if (f.key === 'quantity' || f.key === 'newQuantity') nv = parseInt(nv, 10) || 1;
+                if (f.key === 'quantity' || f.key === 'newQuantity') nv = (nv === 'لم يحدد' || nv === '') ? 'لم يحدد' : (parseInt(nv, 10) || 1);
                 if (f.key === 'pricePerUnit' || f.key === 'newPricePerUnit') {
                     const p = parseFloat(nv);
                     nv = isNaN(p) ? (c[f.key] || 0) : p;
+                }
+                // التحقق من رابط الخريطة: جوجل ماب فقط
+                if (f.key === 'mapUrl' && nv) {
+                    let u = String(nv).replace(/\s+/g, '');
+                    if (/^[0-9.\-]+,[0-9.\-]+$/.test(u)) {
+                        c.coordinates = u;
+                        nv = 'https://www.google.com/maps?q=' + u;
+                    } else if (!isValidGoogleMapsLink(u)) {
+                        showAlert('الرابط غير صحيح — يُقبل فقط رابط جوجل ماب بموقع داخل السعودية أو إحداثيات مثل 24.46,39.61', 'error');
+                        window.__mapUrlInvalid = true;
+                        return;
+                    } else {
+                        if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+                        nv = u;
+                        const q = u.match(/[?&]q=([0-9.\-]+),([0-9.\-]+)/)
+                            || u.match(/@([0-9.\-]+),([0-9.\-]+)/)
+                            || u.match(/!3d([0-9.\-]+)!4d([0-9.\-]+)/)
+                            || u.match(/3d([0-9.\-]+)!4d([0-9.\-]+)/);
+                        if (q) c.coordinates = q[1] + ',' + q[2];
+                    }
                 }
                 
                 let ov = c[f.key];
@@ -7042,6 +7909,24 @@ function saveEmail(contractNumber, email) {
                     c[f.key] = cleanNv;
                 }
             });
+            if (window.__mapUrlInvalid) return;
+
+            // تثبيت العدد الجديد دائماً من القائمة المنسدلة (حتى لا يعود إلى 1 عند إعادة الفتح)
+            {
+                const nqEl = document.getElementById('edit_newQuantity');
+                if (nqEl) {
+                    const nq = String(nqEl.value || '').trim();
+                    const fixed = (nq === 'لم يحدد' || nq === '') ? 'لم يحدد' : (parseInt(nq, 10) || 1);
+                    if (c.newQuantity !== fixed) {
+                        if (!changes.some(function(x){ return String(x).indexOf('العدد الجديد') >= 0; })) {
+                            changes.push('العدد الجديد من [' + (c.newQuantity != null ? c.newQuantity : 'فارغ') + '] إلى [' + fixed + ']');
+                        }
+                        c.newQuantity = fixed;
+                    } else {
+                        c.newQuantity = fixed;
+                    }
+                }
+            }
 
             if (changes.length > 0) {
                 if (!c.actions) c.actions = [];
@@ -7284,25 +8169,30 @@ function saveEmail(contractNumber, email) {
             if (!c) return;
             // من الجدول: لا يُكتب فوق موقع موجود (التعديل عبر تقرير التعديل فقط)
             if (String(c.mapUrl || c.coordinates || '').trim()) return;
-            const parsed = parseCoordsFromMapInput(url);
-            if (!parsed) {
+            let u = (url || '').trim();
+            u = u.replace(/\s+/g, '');
+            if (!u) {
                 c.mapUrl = '';
-                c.coordinates = '';
+            } else if (/^[0-9.\-]+,[0-9.\-]+$/.test(u)) {
+                c.coordinates = u;
+                c.mapUrl = 'https://www.google.com/maps?q=' + c.coordinates;
             } else {
-                c.mapUrl = parsed.mapUrl || '';
-                c.coordinates = parsed.coordinates || '';
-                if (parsed.shortLink && !parsed.coordinates) {
-                    // رابط مختصر بدون إحداثيات — يُحفظ الرابط لكن لن يظهر دبوس حتى تُلصق إحداثيات أو رابط كامل
-                    console.warn('رابط خريطة مختصر بدون إحداثيات:', parsed.mapUrl);
+                if (!isValidGoogleMapsLink(u)) {
+                    showAlert('الرابط غير صحيح — يُقبل فقط رابط جوجل ماب بموقع داخل السعودية أو إحداثيات مثل 24.46,39.61', 'error');
+                    return;
                 }
+                if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+                c.mapUrl = u;
+                const q = u.match(/[?&]q=([0-9.\-]+),([0-9.\-]+)/)
+                    || u.match(/@([0-9.\-]+),([0-9.\-]+)/)
+                    || u.match(/!3d([0-9.\-]+)!4d([0-9.\-]+)/)
+                    || u.match(/3d([0-9.\-]+)!4d([0-9.\-]+)/);
+                if (q) c.coordinates = q[1] + ',' + q[2];
             }
-            c.updatedAt = Date.now();
             const f = filteredContracts.find(x => x.contractNumber === contractNumber);
             if (f) { f.mapUrl = c.mapUrl; f.coordinates = c.coordinates; }
-            saveToLocalStorage(contractNumber);
-            try { if (typeof saveToSupabase === 'function') saveToSupabase(c); } catch (e) {}
+            saveToLocalStorage();
 
-            // تحديث رابط الفتح فوراً بدون إعادة رسم الجدول
             const link = document.getElementById('mapLink_' + contractNumber);
             if (link) {
                 if (c.mapUrl) {
@@ -7322,21 +8212,31 @@ function saveEmail(contractNumber, email) {
                 showAlert('لا يمكن تغيير الموقع من الجدول — استخدم زر «تعديل» (تقرير التعديل)', 'info');
                 return;
             }
-            const parsed = parseCoordsFromMapInput(url);
-            if (!parsed || !parsed.mapUrl) return;
-            c.mapUrl = parsed.mapUrl;
-            c.coordinates = parsed.coordinates || '';
+            let u = (url || '').trim().replace(/\s+/g, '');
+            if (!u) return;
+            if (/^[0-9.\-]+,[0-9.\-]+$/.test(u)) {
+                c.coordinates = u;
+                c.mapUrl = 'https://www.google.com/maps?q=' + c.coordinates;
+            } else {
+                if (!isValidGoogleMapsLink(u)) {
+                    showAlert('الرابط غير صحيح — يُقبل فقط رابط جوجل ماب بموقع داخل السعودية أو إحداثيات مثل 24.46,39.61', 'error');
+                    return;
+                }
+                if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+                c.mapUrl = u;
+                const q = u.match(/[?&]q=([0-9.\-]+),([0-9.\-]+)/)
+                    || u.match(/@([0-9.\-]+),([0-9.\-]+)/)
+                    || u.match(/!3d([0-9.\-]+)!4d([0-9.\-]+)/)
+                    || u.match(/3d([0-9.\-]+)!4d([0-9.\-]+)/);
+                if (q) c.coordinates = q[1] + ',' + q[2];
+            }
             c.updatedAt = Date.now();
             const f = filteredContracts.find(x => x.contractNumber === contractNumber);
             if (f) { f.mapUrl = c.mapUrl; f.coordinates = c.coordinates; }
-            saveToLocalStorage(contractNumber);
-            try { if (typeof saveToSupabase === 'function') saveToSupabase(c); } catch (e) {}
+            saveToLocalStorage();
             if (typeof renderTable === 'function') renderTable(filteredContracts);
-            if (parsed.coordinates) {
-                showAlert('تم حفظ الموقع والإحداثيات — سيظهر على الخريطة', 'success');
-            } else {
-                showAlert('تم حفظ الرابط، لكن بدون إحداثيات ظاهرة.\nللظهور على الخريطة الصق رابطاً فيه @ أو إحداثيات مثل:\n24.467,39.611\nأو من خرائط Google: مشاركة → نسخ الرابط بعد فتح الموقع على الخريطة', 'info');
-            }
+            showAlert('تم حفظ الموقع كرابط «خريطة» — أي تعديل لاحق من زر «تعديل» فقط', 'success');
+            setTimeout(function () { focusNextRowInputAfter(contractNumber); }, 30);
         }
 
         function normalizeWhatsAppPhone(phone) {
@@ -7389,7 +8289,7 @@ function saveEmail(contractNumber, email) {
                         + 'نهاية القديم: ' + formatDate(c.oldEndDate) + '\n'
                         + 'بداية الجديد: ' + formatDate(nd.newStart) + '\n'
                         + 'أيام التأخير: ' + (typeof calcDebt === 'function' && calcDebt(c).days > 0 ? calcDebt(c).days + ' يوم' : '-') + '\n'
-                        + 'المديونية: ' + (typeof calcDebt === 'function' && calcDebt(c).amount > 0 ? calcDebt(c).amount + ' ريال' : '-')
+                        + 'مدين: ' + (typeof calcDebt === 'function' && calcDebt(c).amount > 0 ? calcDebt(c).amount + ' ريال' : '-')
                     ));
             }
             const url = 'https://wa.me/' + phone + (text ? ('?text=' + encodeURIComponent(text)) : '');
@@ -7404,72 +8304,96 @@ function saveEmail(contractNumber, email) {
                 showAlert('كلمة السر غير صحيحة — لم يتم الحذف', 'error');
                 return;
             }
-            // حذف العقد من الذاكرة المحلية
-            allContracts = allContracts.filter(function(c) {
-                return String(c.contractNumber) !== String(num);
-            });
-            // حذف ملف PDF المحلي إن وجد
-            try { deletePdfBlob(num); } catch (ePdf) {}
-            // حذف العقد من Supabase أولاً وانتظر النتيجة
-            try {
-                const success = await deleteFromSupabase(num);
-                if (!success) {
-                    showAlert('فشل حذف العقد من السحابة — لم يتم تأكيد الحذف', 'error');
-                    return;
-                }
-                // حفظ القائمة المحلية بعد نجاح الحذف السحابي
-                localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
-                applyFilters();
-                showAlert('تم حذف العقد من السحابة وجميع الأجهزة', 'success');
-            } catch (e) {
-                console.error('❌ خطأ حذف العقد:', e);
-                showAlert('حدث خطأ أثناء حذف العقد من السحابة', 'error');
-            }
+            allContracts = allContracts.filter(c => c.contractNumber !== num);
+            deletePdfBlob(num);
+            try { if (typeof deleteContractFromCloud === 'function') deleteContractFromCloud(num); } catch (e) {}
+            // حفظ محلي بدون إعادة رفع كل العقود (الحذف السحابي تم أعلاه)
+            localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
+            applyFilters();
+            showAlert('تم الحذف', 'success');
         }
 
-        function parseCoordsFromMapInput(input) {
-            if (!input) return null;
-            let u = String(input).trim().replace(/\s+/g, '');
+        /** هل النص يبدو كرابط خرائط جوجل؟ */
+        function isGoogleMapsUrlShape(url) {
+            if (!url) return false;
+            var u = String(url).trim().replace(/\s+/g, '');
+            if (!u) return false;
+            if (/^[0-9.\-]+,[0-9.\-]+$/.test(u)) return true;
+            if (/google\.[a-z.]+\/maps/i.test(u)) return true;
+            if (/maps\.google\./i.test(u)) return true;
+            if (/maps\.app\.goo\.gl/i.test(u)) return true;
+            if (/goo\.gl\/maps/i.test(u)) return true;
+            if (/g\.co\/maps/i.test(u)) return true;
+            return false;
+        }
+
+        /** استخراج lat,lng من نص رابط أو إحداثيات — بدون التحقق من النطاق */
+        function extractCoordsFromText(url) {
+            if (!url) return null;
+            var u = String(url).trim().replace(/\s+/g, '');
             if (!u) return null;
-            // إحداثيات مباشرة: 24.46,39.61
-            let m = u.match(/^([0-9.\-]+),([0-9.\-]+)$/);
-            if (m) {
-                const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
-                if (!isNaN(lat) && !isNaN(lng)) {
-                    return { lat: lat, lng: lng, coordinates: m[1] + ',' + m[2], mapUrl: 'https://www.google.com/maps?q=' + m[1] + ',' + m[2] };
-                }
+            if (/^[0-9.\-]+,[0-9.\-]+$/.test(u)) {
+                var p0 = u.split(',');
+                return { lat: parseFloat(p0[0]), lng: parseFloat(p0[1]) };
             }
-            if (!/^https?:\/\//i.test(u) && /google\.|maps\.|goo\.gl|maps\.app/i.test(u)) u = 'https://' + u;
-            const patterns = [
-                /[?&]q=([0-9.\-]+),([0-9.\-]+)/,
-                /[?&]query=([0-9.\-]+),([0-9.\-]+)/i,
-                /[?&]query=([0-9.\-]+)%2C([0-9.\-]+)/i,
-                /@([0-9.\-]+),([0-9.\-]+)/,
-                /!3d([0-9.\-]+)!4d([0-9.\-]+)/,
-                /3d([0-9.\-]+)!4d([0-9.\-]+)/,
-                /destination=([0-9.\-]+),([0-9.\-]+)/,
-                /[?&]ll=([0-9.\-]+),([0-9.\-]+)/,
-                /[?&]center=([0-9.\-]+),([0-9.\-]+)/
-            ];
-            for (let i = 0; i < patterns.length; i++) {
-                const q = u.match(patterns[i]);
-                if (q) {
-                    const a = parseFloat(q[1]), b = parseFloat(q[2]);
-                    if (isNaN(a) || isNaN(b)) continue;
-                    // تطبيع إن كان الترتيب مقلوباً لنطاق السعودية
-                    let lat = a, lng = b;
-                    if (!(lat >= 16 && lat <= 33 && lng >= 34 && lng <= 56)) {
-                        if (b >= 16 && b <= 33 && a >= 34 && a <= 56) { lat = b; lng = a; }
-                    }
-                    const coordinates = lat + ',' + lng;
-                    return { lat: lat, lng: lng, coordinates: coordinates, mapUrl: u };
-                }
-            }
-            // رابط بدون إحداثيات ظاهرة (مثل maps.app.goo.gl/xxxx)
-            if (/^https?:\/\//i.test(u)) {
-                return { lat: null, lng: null, coordinates: '', mapUrl: u, shortLink: true };
+            // أنماط شائعة في روابط جوجل ماب
+            var q = u.match(/[?&]q=([0-9.\-]+),([0-9.\-]+)/)
+                || u.match(/[?&]query=([0-9.\-]+),([0-9.\-]+)/)
+                || u.match(/@([0-9.\-]+),([0-9.\-]+)/)
+                || u.match(/!3d([0-9.\-]+)!4d([0-9.\-]+)/)
+                || u.match(/3d([0-9.\-]+)!4d([0-9.\-]+)/)
+                || u.match(/\/place\/([0-9.\-]+),([0-9.\-]+)/)
+                || u.match(/destination=([0-9.\-]+),([0-9.\-]+)/)
+                || u.match(/center=([0-9.\-]+)%2C([0-9.\-]+)/i)
+                || u.match(/center=([0-9.\-]+),([0-9.\-]+)/);
+            if (q) return { lat: parseFloat(q[1]), lng: parseFloat(q[2]) };
+            // صيغة درجات مثل 24°00'00.0"N+28°00'00.0"E داخل المسار
+            var dms = u.match(/([0-9]{1,2})(?:°|%C2%B0|%C2%B0)([0-9]{1,2})(?:'|%27)([0-9.]+)(?:"|%22)?([NS])\+?([0-9]{1,3})(?:°|%C2%B0|%C2%B0)([0-9]{1,2})(?:'|%27)([0-9.]+)(?:"|%22)?([EW])/i);
+            if (dms) {
+                var lat = parseInt(dms[1], 10) + parseInt(dms[2], 10) / 60 + parseFloat(dms[3]) / 3600;
+                var lng = parseInt(dms[5], 10) + parseInt(dms[6], 10) / 60 + parseFloat(dms[7]) / 3600;
+                if (/S/i.test(dms[4])) lat = -lat;
+                if (/W/i.test(dms[8])) lng = -lng;
+                return { lat: lat, lng: lng };
             }
             return null;
+        }
+
+        /** هل الإحداثيات داخل نطاق السعودية تقريباً؟ */
+        function isSaudiCoords(lat, lng) {
+            if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) return false;
+            // نطاق تقريبي للمملكة
+            if (lat >= 16 && lat <= 33 && lng >= 34 && lng <= 56) return true;
+            // مقلوب lat/lng بالخطأ
+            if (lng >= 16 && lng <= 33 && lat >= 34 && lat <= 56) return true;
+            return false;
+        }
+
+        /**
+         * يقبل فقط:
+         * - إحداثيات رقمية داخل السعودية، أو
+         * - رابط جوجل ماب يمكن استخراج إحداثيات صالحة منه داخل السعودية
+         * غير ذلك → غير صالح
+         */
+        function isValidGoogleMapsLink(url) {
+            if (!url) return false;
+            var u = String(url).trim().replace(/\s+/g, '');
+            if (!u) return false;
+            // يجب أن يكون شكل جوجل ماب أو إحداثيات
+            if (!isGoogleMapsUrlShape(u)) return false;
+            // روابط قصيرة بدون إحداثيات ظاهرة — نقبل الشكل فقط (لا يمكن التحقق من الموقع)
+            if (/maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/maps/i.test(u) && !extractCoordsFromText(u)) {
+                return true;
+            }
+            var coords = extractCoordsFromText(u);
+            if (!coords) return false;
+            return isSaudiCoords(coords.lat, coords.lng);
+        }
+
+        /** هل للعقد موقع يظهر على الخريطة فعلياً؟ */
+        function hasValidMapLink(c) {
+            if (!c) return false;
+            return !!getLatLng(c);
         }
 
         function getLatLng(c) {
@@ -7478,13 +8402,10 @@ function saveEmail(contractNumber, email) {
                 const p = String(c.coordinates).split(',');
                 if (p.length >= 2) { lat = parseFloat(p[0]); lng = parseFloat(p[1]); }
             }
-            if ((lat === null || isNaN(lat) || isNaN(lng)) && c.mapUrl) {
-                const parsed = parseCoordsFromMapInput(c.mapUrl);
-                if (parsed && parsed.lat != null && parsed.lng != null) {
-                    lat = parsed.lat; lng = parsed.lng;
-                    // املأ coordinates إن كانت فارغة حتى تظهر لاحقاً على كل الأجهزة
-                    if (!c.coordinates) c.coordinates = parsed.coordinates;
-                }
+            if ((lat === null || isNaN(lat)) && c.mapUrl) {
+                if (!isGoogleMapsUrlShape(c.mapUrl)) return null;
+                var extracted = extractCoordsFromText(c.mapUrl);
+                if (extracted) { lat = extracted.lat; lng = extracted.lng; }
             }
             if (lat === null || isNaN(lat) || isNaN(lng)) return null;
             // نطاق تقريبي للسعودية
@@ -7499,143 +8420,161 @@ function saveEmail(contractNumber, email) {
         let clientsMapInstance = null;
 
         function buildQrPayload(c, nd, value) {
-            // مهم جداً: لا نضع رابط http/https داخل الباركود
-            // لأن الآيفون يفتح الرابط فقط ويتجاهل باقي النص
-            // الإحداثيات تُعرض كنص، وعلامات RTL تحافظ على ترتيب العربية
-            const ZW = '\u200B';
-            const RLM = '\u200F';
+            // نص عادي فقط — يظهر في الملاحظات على أندرويد والآيفون بدون روابط
+            // نفس هيكل الرسالة — تعديل فقط: اتجاه الجوال + الأيام مع الحالة
             function safe(s) {
                 if (s === null || s === undefined || s === '') return '-';
-                return String(s).trim();
+                return String(s).replace(/[\u200E\u200F\u202A-\u202E]/g, '').replace(/\r?\n/g, ' ').trim();
             }
-            // مسافة غير مرئية بين الأرقام الطويلة → لا يُفتح كاتصال على الآيفون
-            function antiPhone(s) {
-                const p = safe(s);
-                if (p === '-' || !/\d{7,}/.test(p)) return p;
-                return p.replace(/(\d)/g, function(d, i) {
-                    return i > 0 ? ZW + d : d;
-                });
+            function shortName(s) {
+                s = safe(s);
+                if (s.length > 40) s = s.slice(0, 40);
+                return s;
             }
-            function phoneSoft(s) {
-                const p = safe(s);
-                if (p === '-' || p.length < 8) return p;
-                return p.replace(/(\d{3,4})(?=\d)/g, '$1 ');
+            // رقم الجوال باتجاه LTR حتى لا ينعكس في واتساب العربي
+            function phoneLtr(s) {
+                var d = safe(s).replace(/[^\d]/g, '');
+                if (!d) return '-';
+                // \u200E = LRM يحافظ على اتجاه الأرقام من اليسار لليمين
+                return '\u200E' + d + '\u200E';
             }
-            // إحداثيات فقط (بدون رابط) حتى لا يُفسَّر الباركود كـ URL
-            function locationText(c) {
-                let coords = safe(c.coordinates);
-                if (coords === '-' && c.mapUrl) {
-                    const u = String(c.mapUrl);
-                    const q = u.match(/[?&]q=([0-9.\-]+),([0-9.\-]+)/)
-                        || u.match(/@([0-9.\-]+),([0-9.\-]+)/)
-                        || u.match(/!3d([0-9.\-]+)!4d([0-9.\-]+)/)
-                        || u.match(/3d([0-9.\-]+)!4d([0-9.\-]+)/);
-                    if (q) coords = q[1] + ', ' + q[2];
+            function statusWithDays(st) {
+                if (!st || !st.label) return '-';
+                var days = st.daysLeft;
+                if (days === null || days === undefined || isNaN(days)) return safe(st.label);
+                if (days < 0) {
+                    // منتهي: عدد أيام التأخير
+                    return 'منتهي — ' + Math.abs(days) + ' يوم';
                 }
-                if (coords !== '-') return coords;
-                return '-';
+                if (st.status === 'warning' || (days <= 30 && days >= 0)) {
+                    return 'ينتهي قريباً — متبقي ' + days + ' يوم';
+                }
+                // ساري: الأيام المتبقية
+                return 'ساري — متبقي ' + days + ' يوم';
             }
-            const name = safe(c.customerName);
-            const loc = locationText(c);
-            const oldBin = safe(c.binSize);
-            const oldQty = safe(c.quantity != null && c.quantity !== '' ? c.quantity : 1);
-            const newBin = safe(c.newBinSize || c.binSize);
-            const newQty = safe(c.newQuantity != null && c.newQuantity !== '' ? c.newQuantity : (c.quantity || 1));
-            const oldPrice = (c.pricePerUnit != null && c.pricePerUnit !== '') ? c.pricePerUnit : 0;
-            const newPrice = (c.newPricePerUnit != null && c.newPricePerUnit !== '') ? c.newPricePerUnit : oldPrice;
-            const debt = (typeof calcDebt === 'function') ? calcDebt(c) : { days: 0, amount: 0 };
-            const cred = (typeof calcCreditor === 'function') ? calcCreditor(c) : { days: 0, amount: 0 };
-            const lines = [
-                RLM + 'كشف بيانات عقد النفايات',
-                RLM + 'رقم العقد: ' + antiPhone(c.contractNumber),
-                RLM + 'العميل: ' + name,
-                RLM + 'السجل: ' + antiPhone(c.commercialRegistry),
-                RLM + 'الرخصة: ' + antiPhone(c.commercialActLicense),
-                RLM + 'المساحة: ' + safe(c.totalArea) + ' م2',
-                RLM + 'الحي: ' + safe(c.district || c.location),
-                RLM + 'البلدية: ' + safe(c.municipality),
-                RLM + 'الجوال: ' + phoneSoft(c.phone),
-                RLM + 'البريد: ' + safe(c.email),
-                RLM + 'الحاوية: ' + oldBin,
-                RLM + 'العدد: ' + oldQty,
-                RLM + 'السعر: ' + safe(oldPrice) + ' ريال',
-                RLM + 'الحاوية الجديد: ' + newBin,
-                RLM + 'العدد الجديد: ' + newQty,
-                RLM + 'السعر الجديد: ' + safe(newPrice) + ' ريال',
-                RLM + 'المبلغ: ' + safe(value) + ' ريال',
-                RLM + 'نهاية القديم: ' + formatDate(c.oldEndDate),
-                RLM + 'بداية الجديد: ' + formatDate(nd.newStart),
-                RLM + 'أيام التأخير: ' + (debt.days > 0 ? (debt.days + ' يوم') : '-'),
-                RLM + 'المديونية: ' + (debt.amount > 0 ? (debt.amount + ' ريال') : '-'),
-                RLM + 'المبلغ الدائن: ' + (cred.amount > 0 ? (cred.amount + ' ريال') : '-'),
-                RLM + 'الأيام المتبقية من العقد: ' + (cred.days > 0 ? (cred.days + ' يوم') : '-'),
-                RLM + 'الإحداثيات: ' + loc
-            ];
-            const footer =
-                '\n\n'
-                + 'لتجديد العقد ومعرفة حجم الحاوية او الغرفة اوالمكبس والسعر في العقد الجديد اذا كانت فارغة في الرسالة\n'
-                + 'نرجو إرسال موقع المنشأة (اللوكيشن) عبر واتساب لاستكمال إجراءات تجديد العقد\n'
-                + 'نرجو إرسال نسخة من المستندات التالية:\n'
-                + '1- رخصة بلدي "إن وجدت"\n'
-                + '2- السجل التجاري\n'
-                + '3- الرقم الضريبي\n'
-                + '4- رخصة البناء أو عقد الإيجار\n'
-                + '5- العنوان الوطني للمنشأة';
-            return lines.join('\n') + footer;
+            var debt = (typeof calcDebt === 'function') ? calcDebt(c) : { days: 0, amount: 0 };
+            var cred = (typeof calcCreditor === 'function') ? calcCreditor(c) : { days: 0, amount: 0 };
+            var st = (typeof getContractStatus === 'function') ? getContractStatus(c.oldEndDate) : { label: '-', daysLeft: null, status: 'unknown' };
+
+            var loc = safe(c.coordinates);
+            if (loc === '-' && c.mapUrl) {
+                var u = String(c.mapUrl);
+                var q = u.match(/[?&]q=([0-9.\-]+),([0-9.\-]+)/)
+                    || u.match(/@([0-9.\-]+),([0-9.\-]+)/)
+                    || u.match(/!3d([0-9.\-]+)!4d([0-9.\-]+)/)
+                    || u.match(/3d([0-9.\-]+)!4d([0-9.\-]+)/);
+                if (q) loc = q[1] + ',' + q[2];
+            }
+            if (loc === '-' && typeof getLatLng === 'function') {
+                var ll = getLatLng(c);
+                if (ll && ll.lat != null && ll.lng != null) loc = ll.lat + ',' + ll.lng;
+            }
+
+            return [
+                'معلومات العقد',
+                'الاسم: ' + shortName(c.customerName),
+                'الجوال: ' + phoneLtr(c.phone),
+                'الموقع: ' + loc,
+                'الحالة: ' + statusWithDays(st),
+                'مدين: ' + (debt.amount > 0 ? String(Math.round(debt.amount)) + ' ريال' : '0 ريال'),
+                'دائن: ' + (cred.amount > 0 ? String(Math.round(cred.amount)) + ' ريال' : '0 ريال')
+            ].join('\n');
         }
+
         function renderQrCode(el, text) {
             if (!el) return false;
             el.innerHTML = '';
-            el.style.minHeight = '200px';
+            el.style.minHeight = '180px';
             el.style.display = 'flex';
             el.style.alignItems = 'center';
             el.style.justifyContent = 'center';
+            el.style.background = '#ffffff';
+            el.style.padding = '4px';
+            el.style.boxSizing = 'border-box';
 
             if (typeof QRCode === 'undefined' || typeof QRCode.toDataURL !== 'function') {
-                el.innerHTML = '<span style="color:#dc2626;font-size:0.8em;">مكتبة الباركود غير محمّلة — تحقق من الاتصال بالإنترنت ثم حدّث الصفحة</span>';
+                el.innerHTML = '<span style="color:#dc2626;font-size:0.8em;">مكتبة الباركود غير محمّلة</span>';
                 return false;
             }
 
-            // الحجم الأصلي كما كان في أول نسخة
-            const size = 280;
-            const opts = {
-                errorCorrectionLevel: 'M',
+            // ========== معايير تصحيح الأخطاء والترميز الموحد ==========
+            // H = أعلى مستوى تصحيح (يدعم قراءة صحيحة حتى مع تلف 30% من الباركود)
+            // UTF-8 explicit encoding
+            var size = 240;
+            var opts = {
+                errorCorrectionLevel: 'H',  // أعلى مستوى: H بدلاً من M
                 type: 'image/png',
-                margin: 2,
+                margin: 4,  // زيادة الهامش
                 width: size,
-                scale: 10,
-                color: { dark: '#000000', light: '#ffffff' }
+                color: { 
+                    dark: '#000000',    // أسود صريح
+                    light: '#FFFFFF'    // أبيض صريح
+                },
+                // معايير توافقية إضافية
+                version: null // auto-detect version based on content
             };
+
+            function encodeQRData(text) {
+                // تنظيف النص من أحرف اتجاه Unicode
+                var cleaned = String(text || '')
+                    .replace(/[\u200E\u200F\u202A-\u202E]/g, '') // إزالة أحرف الاتجاه
+                    .trim();
+                
+                // قص الطول إذا لزم الأمر
+                if (cleaned.length > 220) cleaned = cleaned.slice(0, 220);
+                
+                // إضافة رمز UTF-8 صريح (معيار ISO/IEC 18004)
+                // هذا يساعد على توحيد القراءة عبر جميع الأجهزة
+                return cleaned;
+            }
 
             function showImg(dataUrl) {
                 el.innerHTML = '';
-                const img = document.createElement('img');
+                var img = document.createElement('img');
                 img.src = dataUrl;
-                img.width = size;
-                img.height = size;
                 img.alt = 'باركود العقد';
+                img.title = 'انقر لفتح في نافذة جديدة';
                 img.style.display = 'block';
                 img.style.margin = '0 auto';
-                img.style.imageRendering = 'pixelated';
+                img.style.width = size + 'px';
+                img.style.height = size + 'px';
                 img.style.maxWidth = '100%';
-                img.style.height = 'auto';
+                img.style.background = '#ffffff';
+                img.style.border = '1px solid #e2e8f0';
+                img.style.cursor = 'pointer';
+                img.style.borderRadius = '4px';
+                
+                // فتح صورة QR في نافذة جديدة عند النقر
+                img.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.open(dataUrl, '_blank', 'noopener,noreferrer,width=512,height=512');
+                };
+                
                 el.appendChild(img);
             }
 
-            QRCode.toDataURL(text, opts)
+            var payload = encodeQRData(text);
+            
+            // محاولة أولى مع أعلى مستوى تصحيح
+            QRCode.toDataURL(payload, opts)
                 .then(showImg)
-                .catch(function() {
-                    const safeShort = text.split('\n').slice(0, 10).join('\n');
-                    return QRCode.toDataURL(safeShort, Object.assign({}, opts, { errorCorrectionLevel: 'M', margin: 4 }))
-                        .then(showImg);
+                .catch(function(err1) {
+                    // محاولة ثانية مع مستوى تصحيح أقل إذا فشلت الأولى
+                    console.warn('QR Level H failed, trying M:', err1);
+                    return QRCode.toDataURL(payload, Object.assign({}, opts, { errorCorrectionLevel: 'M' })).then(showImg);
+                })
+                .catch(function(err2) {
+                    // محاولة ثالثة مع مستوى أقل
+                    console.warn('QR Level M failed, trying L:', err2);
+                    return QRCode.toDataURL(payload, Object.assign({}, opts, { errorCorrectionLevel: 'L' })).then(showImg);
                 })
                 .catch(function(err) {
-                    console.warn('QR failed', err);
+                    console.error('جميع مستويات QR فشلت:', err);
                     el.innerHTML = '<span style="color:#dc2626;font-size:0.8em;">تعذر إنشاء الباركود</span>';
                 });
             return true;
         }
-
 
         function openReportWindow(title, bodyHtml, afterOpen) {
             const w = window.open('', '_blank', 'noopener,noreferrer,width=920,height=900');
@@ -7651,8 +8590,7 @@ function saveEmail(contractNumber, email) {
                 body { background:#f1f5f9; padding:12px; font-family: 'Segoe UI', Tahoma, sans-serif; }
                 .report-container { background:white; max-width:900px; margin:0 auto; }
                 @media print { body, body * { visibility: visible !important; } }
-                </style>
-                </head><body>
+                </style></head><body>
                 <div style="text-align:center;margin-bottom:10px;">
                   <button onclick="window.print()" style="padding:8px 16px;background:#0f766e;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:700;">🖨️ طباعة</button>
                   <button onclick="window.close()" style="padding:8px 16px;background:#dc2626;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:700;margin-right:8px;">إغلاق</button>
@@ -7747,6 +8685,15 @@ function generateReport(num) {
             }
             const nd = calcNewDates(c.oldEndDate, c);
             const value = ((c.newPricePerUnit != null && c.newPricePerUnit !== '') ? c.newPricePerUnit : (c.pricePerUnit || 0)) * (c.newQuantity != null && c.newQuantity !== '' ? c.newQuantity : (c.quantity || 1)); const st = getContractStatus(c.oldEndDate);
+            const printDateStr = (function() {
+                const d = new Date();
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const yyyy = d.getFullYear();
+                const hh = String(d.getHours()).padStart(2, '0');
+                const mi = String(d.getMinutes()).padStart(2, '0');
+                return dd + '/' + mm + '/' + yyyy + ' — ' + hh + ':' + mi;
+            })();
 
             const reportHtml = `
                 <div class="report-container">
@@ -7757,12 +8704,14 @@ function generateReport(num) {
                     <div class="report-header">
                         <h2>🗑️ كشف تفاصيل عقد جمع النفايات</h2>
                         <p>نظام إدارة عقود جمع النفايات</p>
-                        <p><strong>حالة العقد:</strong> <span class="badge ${st.class}">${st.label}${st.daysLeft !== null ? ' (' + st.daysLeft + ' يوم)' : ''}</span></p>
+
+                        <p><strong>تاريخ الطباعة:</strong> ${printDateStr}</p>
+                        <p style="margin:6px 0;line-height:1.6;"><strong>حالة العقد:</strong> <span class="badge-status ${st.class}">${st.label}${st.daysLeft !== null ? ' (' + st.daysLeft + ' يوم)' : ''}</span></p>
                     </div>
 
-                    <div style="text-align:center;margin:8px 0 10px;">
-                        <div id="reportQr" style="margin:0 auto;width:260px;height:260px;display:flex;align-items:center;justify-content:center;background:white;"></div>
-                        <div style="font-size:0.8em;color:#64748b;margin-top:4px;font-weight:bold;">مسح الرمز لعرض بيانات العقد الكاملة</div>
+                    <div class="report-qr-wrap" style="text-align:center;margin:8px 0 10px;">
+                        <div id="reportQr" style="margin:0 auto;width:200px;height:200px;display:flex;align-items:center;justify-content:center;background:white;"></div>
+                        <div class="qr-caption" style="font-size:0.8em;color:#64748b;margin-top:8px;font-weight:600;line-height:1.4;">مسح الرمز لعرض بيانات العقد الكاملة</div>
                     </div>
 
                     <div class="report-row title">
@@ -7796,8 +8745,8 @@ function generateReport(num) {
                     <div class="report-row"><span class="label">تاريخ بداية العقد الجديد:</span><span class="value">${formatDate(nd.newStart)}</span></div>
                     <div class="report-row"><span class="label">تاريخ نهاية العقد الجديد:</span><span class="value">${formatDate(nd.newEnd)}</span></div>
                     <div class="report-row"><span class="label">أيام التأخير:</span><span class="value">${calcDebt(c).days > 0 ? calcDebt(c).days + ' يوم' : '-'}</span></div>
-                    <div class="report-row"><span class="label">المديونية:</span><span class="value" style="color:${calcDebt(c).amount > 0 ? '#dc2626' : 'inherit'};font-weight:bold;">${calcDebt(c).amount > 0 ? formatCurrency(calcDebt(c).amount) : '-'}</span></div>
-                    <div class="report-row"><span class="label">المبلغ الدائن:</span><span class="value" style="color:${calcCreditor(c).amount > 0 ? '#16a34a' : 'inherit'};font-weight:bold;">${calcCreditor(c).amount > 0 ? formatCurrency(calcCreditor(c).amount) : '-'}</span></div>
+                    <div class="report-row"><span class="label">مدين:</span><span class="value" style="color:${calcDebt(c).amount > 0 ? '#dc2626' : 'inherit'};font-weight:bold;">${calcDebt(c).amount > 0 ? formatCurrency(calcDebt(c).amount) : '-'}</span></div>
+                    <div class="report-row"><span class="label">دائن:</span><span class="value" style="color:${calcCreditor(c).amount > 0 ? '#16a34a' : 'inherit'};font-weight:bold;">${calcCreditor(c).amount > 0 ? formatCurrency(calcCreditor(c).amount) : '-'}</span></div>
                     <div class="report-row"><span class="label">الأيام المتبقية من العقد:</span><span class="value">${calcCreditor(c).days > 0 ? calcCreditor(c).days + ' يوم' : '-'}</span></div>
 
                     <div class="report-total">
@@ -7809,6 +8758,7 @@ function generateReport(num) {
                         <div style="font-weight:800;margin-bottom:4px;">الحسابات — NCB الأهلي</div>
                         <span class="iban-box">SA201000003354222000110</span>
                         <div style="margin-top:4px;font-size:0.85em;color:#475569;">للتواصل: 0546000219</div>
+                        <div style="margin-top:8px;font-size:0.75em;line-height:1.4;color:#64748b;border-top:1px solid #e2e8f0;padding-top:6px;"><strong>ملاحظة:</strong> المبالغ (مدين - دائن) تعتمد على حالة العقد وعدد الأيام المتبقية أو المنقضية وقت الطباعة وقد تتغير بالتحديثات الدورية.</div>
                     </div>
 
 
@@ -7837,28 +8787,56 @@ function showMapReport() {
             const active = allContracts.filter(c => getContractStatus(c.oldEndDate).status === 'active');
             const warning = allContracts.filter(c => getContractStatus(c.oldEndDate).status === 'warning');
             const expired = allContracts.filter(c => getContractStatus(c.oldEndDate).status === 'expired');
+            // فقط العقود التي لها إحداثيات قابلة للعرض (رابط جوجل ماب صالح)
             const withCoords = allContracts.filter(c => getLatLng(c));
+            const withValidLink = allContracts.filter(c => typeof hasValidMapLink === 'function' ? hasValidMapLink(c) : !!getLatLng(c));
+            function mapIcon(c) {
+                // أخضر = رابط جوجل ماب صالح ومسجّل · أبيض فارغ = لا يوجد رابط
+                if (typeof hasValidMapLink === 'function' && hasValidMapLink(c)) {
+                    return '<span title="يوجد رابط خريطة صالح" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#16a34a;border:2px solid #15803d;box-shadow:0 0 0 1px #fff;"></span>';
+                }
+                return '<span title="لا يوجد رابط خريطة" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid #cbd5e1;"></span>';
+            }
             function list(arr) {
                 if (!arr.length) return '<p style="color:#94a3b8;">لا يوجد</p>';
-                return '<table style="width:100%;font-size:0.82em;margin-bottom:10px;"><thead><tr style="background:#f1f5f9;"><th>رقم العقد</th><th>اسم العميل</th><th>الموقع</th><th>الحجم</th><th>الانتهاء</th><th>الأيام</th></tr></thead><tbody>' +
+                return '<table style="width:100%;font-size:0.82em;margin-bottom:10px;border-collapse:collapse;"><thead><tr style="background:#f1f5f9;"><th style="padding:6px;">الخريطة</th><th style="padding:6px;">رقم العقد</th><th style="padding:6px;">اسم العميل</th><th style="padding:6px;">الموقع</th><th style="padding:6px;">رابط الموقع</th><th style="padding:6px;">الجوال</th><th style="padding:6px;">الحجم</th><th style="padding:6px;">الانتهاء</th><th style="padding:6px;">الأيام</th></tr></thead><tbody>' +
                     arr.map(c => {
                         const st = getContractStatus(c.oldEndDate);
-                        return '<tr><td>' + c.contractNumber + '</td><td>' + c.customerName + '</td><td>' + (c.district||c.location||'-') + '</td><td>' + c.binSize + '</td><td>' + formatDate(c.oldEndDate) + '</td><td>' + (st.daysLeft!==null?st.daysLeft:'-') + '</td></tr>';
+                        const mapLinkCell = c.mapUrl
+                            ? '<a href="' + String(c.mapUrl).replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" style="color:#0f766e;font-weight:700;text-decoration:underline;">فتح الموقع</a>'
+                            : '<span style="color:#94a3b8;">-</span>';
+                        const phoneCell = c.phone
+                            ? '<a href="tel:' + String(c.phone).replace(/[^\d+]/g, '') + '" style="color:#0369a1;font-weight:700;text-decoration:underline;direction:ltr;display:inline-block;">' + String(c.phone) + '</a>'
+                            : '<span style="color:#94a3b8;">-</span>';
+                        return '<tr style="border-bottom:1px solid #e2e8f0;">' +
+                            '<td style="text-align:center;padding:6px;">' + mapIcon(c) + '</td>' +
+                            '<td style="padding:6px;">' + c.contractNumber + '</td>' +
+                            '<td style="padding:6px;">' + (c.customerName || '') + '</td>' +
+                            '<td style="padding:6px;">' + (c.district || c.location || '-') + '</td>' +
+                            '<td style="padding:6px;text-align:center;">' + mapLinkCell + '</td>' +
+                            '<td style="padding:6px;text-align:center;">' + phoneCell + '</td>' +
+                            '<td style="padding:6px;">' + (c.binSize || '') + '</td>' +
+                            '<td style="padding:6px;">' + formatDate(c.oldEndDate) + '</td>' +
+                            '<td style="padding:6px;">' + (st.daysLeft !== null ? st.daysLeft : '-') + '</td>' +
+                            '</tr>';
                     }).join('') + '</tbody></table>';
             }
             document.getElementById('mapReportContent').innerHTML = `
                 <div class="report-container">
                     <div class="report-header">
                         <h2>🗺️ خريطة العملاء</h2>
-                        <p>تاريخ: ${new Date().toLocaleDateString('ar-SA')} | الإجمالي: ${allContracts.length} | على الخريطة: ${withCoords.length}</p>
+                        <p>تاريخ: ${new Date().toLocaleDateString('ar-SA')} | الإجمالي: ${allContracts.length} | على الخريطة: ${withCoords.length} | بروابط صالحة: ${withValidLink.length}</p>
                         <p style="font-size:0.85em;margin-top:6px;">
                             <span class="map-legend-pin" style="background:#16a34a;"></span> ساري
                             <span class="map-legend-pin" style="background:#eab308;margin-right:12px;"></span> ينتهي خلال شهر
                             <span class="map-legend-pin" style="background:#dc2626;margin-right:12px;"></span> منتهي
+                            &nbsp;|&nbsp;
+                            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#16a34a;border:2px solid #15803d;vertical-align:middle;"></span> رابط خريطة مضاف
+                            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid #cbd5e1;vertical-align:middle;margin-right:8px;"></span> بدون رابط
                         </p>
                     </div>
                     <div id="clientsMap"></div>
-                    <p style="font-size:0.85em;color:#64748b;margin:8px 0;">اضغط على الدبوس لعرض: رقم العقد · اسم العميل · حجم الحاوية · تاريخ الانتهاء. العقود بدون رابط موقع لا تظهر على الخريطة.</p>
+                    <p style="font-size:0.85em;color:#64748b;margin:8px 0;">اضغط على الدبوس لعرض التفاصيل. العقود بدون رابط جوجل ماب صالح لا تظهر على الخريطة. العمود «الخريطة» في الجداول أدناه يوضح من أُضيف له رابط ومن لم يُضف.</p>
                     <h3 style="color:#16a34a;margin:12px 0 6px;">🟢 ساري (${active.length})</h3>${list(active)}
                     <h3 style="color:#ca8a04;margin:12px 0 6px;">🟡 ينتهي خلال شهر (${warning.length})</h3>${list(warning)}
                     <h3 style="color:#dc2626;margin:12px 0 6px;">🔴 منتهي (${expired.length})</h3>${list(expired)}
@@ -8150,368 +9128,7 @@ document.getElementById("reportModal").style.display="block";
             }
         }
 
-        // ════════════════════════════════════════════════════════════
-        // SUPABASE CONFIGURATION
-        // ════════════════════════════════════════════════════════════
-        const SUPABASE_URL = 'https://pthfrwsmdjcbaholfext.supabase.co'; // https://xyzabc.supabase.co
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0aGZyd3NtZGpjYmFob2xmZXh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3OTM3MzMsImV4cCI6MjEwMjM2OTczM30.XOV0iZMmuaPz5Yn2xZaCw1mRmxKNFRus6KR5S_iiAi8';
-        
-        let supabase = null;
-        let supabaseReady = false;
-
-        function initSupabase() {
-            try {
-                if (!SUPABASE_URL || SUPABASE_URL.includes('YOUR_')) {
-                    console.warn('⚠️ Supabase not configured - using localStorage only');
-                    return false;
-                }
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                supabaseReady = true;
-                console.log('✅ Supabase initialized');
-                loadContractsFromSupabase();
-                subscribeToChanges();
-                return true;
-            } catch (e) {
-                console.error('❌ Supabase error:', e);
-                return false;
-            }
-        }
-
-        async function loadContractsFromSupabase() {
-            if (!supabaseReady || !supabase) return;
-            try {
-                const { data, error } = await supabase.from('contracts').select('*');
-                if (error) throw error;
-
-                function emptyVal(v) {
-                    return v === undefined || v === null || v === '' || v === '-' || v === 'غير معروف';
-                }
-                function fromRow(row) {
-                    return {
-                        contractNumber: row.contract_number,
-                        customerName: row.customer_name,
-                        commercialRegistry: row.commercial_registry,
-                        commercialActLicense: row.commercial_act_license,
-                        isicClassification: row.isic_classification,
-                        phone: row.phone,
-                        email: row.email,
-                        district: row.district,
-                        location: row.location,
-                        municipality: row.municipality,
-                        binSize: row.bin_size,
-                        quantity: row.quantity,
-                        pricePerUnit: row.price_per_unit,
-                        totalArea: row.total_area,
-                        oldStartDate: row.old_start_date,
-                        oldEndDate: row.old_end_date,
-                        newStartDate: row.new_start_date,
-                        newEndDate: row.new_end_date,
-                        coordinates: row.coordinates,
-                        mapUrl: row.map_url,
-                        fileName: row.file_name,
-                        hasPdf: !!row.has_pdf,
-                        updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : 0
-                    };
-                }
-                // دمج ذكي: لا تمسح حقولاً محلية ممتلئة بقيم سحابية فارغة (مثل الآيزك)
-                function mergeContract(local, remote) {
-                    if (!local) return remote;
-                    if (!remote) return local;
-                    const out = Object.assign({}, local);
-                    const keys = [
-                        'customerName','commercialRegistry','commercialActLicense','isicClassification',
-                        'phone','email','district','location','municipality','binSize','quantity',
-                        'pricePerUnit','totalArea','oldStartDate','oldEndDate','newStartDate','newEndDate',
-                        'coordinates','mapUrl','fileName','hasPdf'
-                    ];
-                    keys.forEach(function(k) {
-                        const lv = local[k], rv = remote[k];
-                        if (emptyVal(lv) && !emptyVal(rv)) out[k] = rv;
-                        else if (!emptyVal(lv) && emptyVal(rv)) out[k] = lv;
-                        else if (!emptyVal(rv)) {
-                            // الاثنان ممتلئان: فضّل الأحدث إن وُجد، وإلا أبقِ المحلي للآيزك/الاسم
-                            const lt = Number(local.updatedAt) || 0;
-                            const rt = Number(remote.updatedAt) || 0;
-                            if (rt > lt) out[k] = rv;
-                            else out[k] = lv;
-                        }
-                    });
-                    out.contractNumber = local.contractNumber || remote.contractNumber;
-                    out.updatedAt = Math.max(Number(local.updatedAt) || 0, Number(remote.updatedAt) || 0) || Date.now();
-                    return out;
-                }
-
-                const localMap = {};
-                (allContracts || []).forEach(function(c) {
-                    if (c && c.contractNumber) localMap[String(c.contractNumber)] = c;
-                });
-
-                const merged = [];
-                const seen = {};
-                if (data && data.length > 0) {
-                    data.forEach(function(row) {
-                        if (!row || !row.contract_number) return;
-                        const id = String(row.contract_number);
-                        seen[id] = true;
-                        const remote = fromRow(row);
-                        merged.push(mergeContract(localMap[id], remote));
-                    });
-                }
-                if (merged.length > 0) {
-                    allContracts = typeof sortContractsByDate === 'function' ? sortContractsByDate(merged) : merged;
-                    localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
-                    console.log('✅ Merged', merged.length, 'contracts from Supabase + local');
-                    applyFilters(true);
-                } else if ((!data || !data.length) && allContracts && allContracts.length) {
-                    // السحابة فارغة — ارفع المحلي
-                    console.log('☁️ السحابة فارغة — رفع البيانات المحلية...');
-                    (allContracts || []).forEach(function(c) {
-                        if (c && c.contractNumber) saveToSupabase(c).catch(function() {});
-                    });
-                }
-            } catch (e) {
-                console.error('❌ Error loading from Supabase:', e);
-            }
-        }
-
-        async function saveToSupabase(contract) {
-            if (!supabaseReady || !supabase || !contract || !contract.contractNumber) {
-                return false;
-            }
-            function nz(v) {
-                if (v === undefined || v === null || v === '' || v === '-' || v === 'غير معروف') return null;
-                return v;
-            }
-            function nNum(v) {
-                if (v === undefined || v === null || v === '') return null;
-                const n = Number(v);
-                return isNaN(n) ? null : n;
-            }
-            function nDate(v) {
-                v = nz(v);
-                if (!v) return null;
-                // قبول YYYY-MM-DD فقط لعمود DATE
-                const s = String(v).trim();
-                if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-                return null;
-            }
-            try {
-                const payload = {
-                    contract_number: String(contract.contractNumber),
-                    customer_name: nz(contract.customerName),
-                    commercial_registry: nz(contract.commercialRegistry),
-                    commercial_act_license: nz(contract.commercialActLicense),
-                    isic_classification: nz(contract.isicClassification),
-                    phone: nz(contract.phone),
-                    email: nz(contract.email),
-                    district: nz(contract.district),
-                    location: nz(contract.location),
-                    municipality: nz(contract.municipality),
-                    bin_size: nz(contract.binSize),
-                    quantity: nNum(contract.quantity) != null ? nNum(contract.quantity) : 1,
-                    price_per_unit: nNum(contract.pricePerUnit),
-                    total_area: nNum(contract.totalArea),
-                    old_start_date: nDate(contract.oldStartDate),
-                    old_end_date: nDate(contract.oldEndDate),
-                    new_start_date: nDate(contract.newStartDate),
-                    new_end_date: nDate(contract.newEndDate),
-                    coordinates: nz(contract.coordinates),
-                    map_url: nz(contract.mapUrl),
-                    file_name: nz(contract.fileName),
-                    has_pdf: !!contract.hasPdf,
-                    updated_at: new Date().toISOString()
-                };
-                const { error } = await supabase.from('contracts').upsert(payload, { onConflict: 'contract_number' });
-                if (error) {
-                    console.error('❌ Error saving', contract.contractNumber, error);
-                    return false;
-                }
-                return true;
-            } catch (e) {
-                console.error('❌ Error saving:', e);
-                return false;
-            }
-        }
-
-        async function deleteFromSupabase(contractNumber) {
-            if (!supabaseReady || !supabase) {
-                console.log('⚠️ Supabase not ready, skip cloud delete');
-                return false;
-            }
-            try {
-                console.log('🗑️ حذف من Supabase:', contractNumber);
-                const { error } = await supabase.from('contracts').delete().eq('contract_number', contractNumber);
-                if (error) {
-                    console.error('❌ خطأ حذف Supabase:', error.message);
-                    return false;
-                }
-                console.log('✅ تم الحذف من Supabase:', contractNumber);
-                // تحديث فوري من Supabase بعد الحذف
-                setTimeout(() => {
-                    if (supabaseReady && supabase) {
-                        loadContractsFromSupabase();
-                    }
-                }, 500);
-                return true;
-            } catch (e) {
-                console.error('❌ خطأ حذف:', e.message);
-                return false;
-            }
-        }
-
-        // تحديث البيانات عند العودة من التطبيق/التبويب الآخر
-        document.addEventListener('visibilitychange', function() {
-            if (!document.hidden) {
-                console.log('👀 الصفحة أصبحت مرئية - جاري التحديث...');
-                if (supabaseReady && supabase) {
-                    loadContractsFromSupabase();
-                }
-            }
-        });
-
-        function subscribeToChanges() {
-            if (!supabaseReady || !supabase) return;
-            try {
-                supabase
-                    .channel('contracts')
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'contracts' }, 
-                        (payload) => {
-                            console.log('📡 Real-time update:', payload.eventType, payload.new?.contract_number);
-                            setTimeout(() => {
-                                if (supabaseReady && supabase && !window.__clearingAll) {
-                                    loadContractsFromSupabase();
-                                }
-                            }, 100);
-                        })
-                    .subscribe((status) => {
-                        if (status === 'SUBSCRIBED') {
-                            console.log('✅ Real-time subscribed');
-                        }
-                    });
-                    
-                // Polling قوي كل 5 ثواني
-                setInterval(function() {
-                    if (supabaseReady && supabase && !window.__clearingAll) {
-                        console.log('📡 Polling من Supabase...');
-                        loadContractsFromSupabase().catch(e => {
-                            console.warn('⚠️ Polling error:', e.message);
-                        });
-                    }
-                }, 5000);
-                
-                console.log('✅ Real-time subscription + Polling active');
-            } catch (e) {
-                console.error('❌ Subscribe error:', e);
-                // إذا فشل Real-time، استخدم Polling فقط
-                setInterval(function() {
-                    if (supabaseReady && supabase) {
-                        loadContractsFromSupabase();
-                    }
-                }, 5000); // Polling كل 5 ثواني كبديل
-            }
-        }
-
-        
-        // مزامنة مجمّعة مؤجّلة — تمنع مئات الطلبات دفعة واحدة (سبب البطء على الجوال)
-        let __supabaseSyncTimer = null;
-        let __supabaseSyncRunning = false;
-        async function forceSyncAllToSupabase() {
-            if (!supabaseReady || !supabase) {
-                alert('Supabase غير متصل');
-                return;
-            }
-            const n = (allContracts || []).length;
-            if (!n) {
-                alert('لا توجد عقود محلية للمزامنة');
-                return;
-            }
-            if (!confirm('رفع / تحديث ' + n + ' عقداً إلى السحابة؟\nاستخدم هذا من الكمبيوتر إذا كان العدد هناك أكبر من الجوال.')) return;
-            // إذا كانت مزامنة خلفية تعمل — انتظر ثم ابدأ مزامنة ظاهرة
-            var waits = 0;
-            while (__supabaseSyncRunning && waits < 60) {
-                await new Promise(function(r) { setTimeout(r, 500); });
-                waits++;
-            }
-            __supabaseSyncRunning = false;
-            if (typeof showAlert === 'function') showAlert('جاري رفع ' + n + ' عقداً إلى السحابة... لا تغلق الصفحة', 'info');
-            await runSupabaseFullSync(true);
-        }
-        function scheduleSupabaseFullSync() {
-            if (__supabaseSyncTimer) clearTimeout(__supabaseSyncTimer);
-            __supabaseSyncTimer = setTimeout(function() { runSupabaseFullSync(); }, 800);
-        }
-        async function runSupabaseFullSync(showMsg) {
-            if (!supabaseReady || !supabase) {
-                if (showMsg) alert('Supabase غير متصل');
-                return;
-            }
-            if (__supabaseSyncRunning && !showMsg) return;
-            // المزامنة اليدوية لها أولوية
-            if (__supabaseSyncRunning && showMsg) {
-                var w = 0;
-                while (__supabaseSyncRunning && w < 40) {
-                    await new Promise(function(r) { setTimeout(r, 500); });
-                    w++;
-                }
-            }
-            __supabaseSyncRunning = true;
-            const loadingMsg = document.getElementById('loadingMsg');
-            const progressWrap = document.getElementById('progressBarWrap');
-            const progressBar = document.getElementById('progressBar');
-            const progressText = document.getElementById('progressText');
-            try {
-                const list = (allContracts || []).filter(function(c) { return c && c.contractNumber; });
-                let ok = 0, fail = 0;
-                const BATCH = 8;
-                if (showMsg && loadingMsg) {
-                    loadingMsg.style.display = 'block';
-                    loadingMsg.textContent = '☁️ بدء مزامنة ' + list.length + ' عقد...';
-                }
-                if (showMsg && progressWrap) progressWrap.style.display = 'block';
-                for (let i = 0; i < list.length; i += BATCH) {
-                    const slice = list.slice(i, i + BATCH);
-                    const results = await Promise.all(slice.map(function(c) {
-                        return saveToSupabase(c).catch(function() { return false; });
-                    }));
-                    results.forEach(function(r) { if (r) ok++; else fail++; });
-                    if (showMsg) {
-                        const done = Math.min(i + BATCH, list.length);
-                        if (loadingMsg) {
-                            loadingMsg.style.display = 'block';
-                            loadingMsg.textContent = '☁️ مزامنة السحابة... ' + done + ' / ' + list.length + ' (نجح: ' + ok + ')';
-                        }
-                        if (progressBar) progressBar.style.width = Math.round(done * 100 / list.length) + '%';
-                        if (progressText) progressText.textContent = done + ' / ' + list.length;
-                    }
-                    await new Promise(function(r) { setTimeout(r, 80); });
-                }
-                console.log('✅ مزامنة سحابية مكتملة:', ok, 'فشل:', fail, 'من', list.length);
-                if (showMsg) {
-                    const msg = 'تمت مزامنة ' + ok + ' عقد إلى السحابة' + (fail ? (' — فشل ' + fail) : '') + '\nالعدد المحلي: ' + list.length;
-                    if (typeof showAlert === 'function') showAlert(msg, fail ? 'info' : 'success');
-                    alert(msg);
-                }
-                if (showMsg && loadingMsg) {
-                    loadingMsg.textContent = '✅ انتهت المزامنة';
-                    setTimeout(function() { loadingMsg.style.display = 'none'; }, 2500);
-                }
-                if (showMsg && progressWrap) {
-                    setTimeout(function() { progressWrap.style.display = 'none'; if (progressBar) progressBar.style.width = '0%'; }, 2500);
-                }
-            } catch (e) {
-                console.warn('runSupabaseFullSync', e);
-                if (showMsg) alert('خطأ أثناء المزامنة: ' + (e && e.message ? e.message : e));
-            } finally {
-                __supabaseSyncRunning = false;
-            }
-        }
-
-        function saveToLocalStorage(onlyContractNumber) {
-            // منع إعادة تحميل البيانات المحذوفة
-            if (window.__clearingAll) {
-                console.log('⏳ في انتظار انتهاء المسح...');
-                return;
-            }
+        function saveToLocalStorage() {
             if (!cloudApplying) {
                 const now = Date.now();
                 (allContracts || []).forEach(function(c) {
@@ -8519,19 +9136,6 @@ document.getElementById("reportModal").style.display="block";
                 });
             }
             localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
-            // حفظ على Supabase: عقد واحد إن حُدد، وإلا مزامنة مجمّعة مؤجّلة (أسرع ولا تجمّد الجوال)
-            try {
-                if (supabaseReady && supabase && (allContracts || []).length > 0) {
-                    if (onlyContractNumber) {
-                        const c = (allContracts || []).find(function(x) {
-                            return x && String(x.contractNumber) === String(onlyContractNumber);
-                        });
-                        if (c) saveToSupabase(c).catch(function(e) { console.error('Error saving to Supabase:', e); });
-                    } else {
-                        scheduleSupabaseFullSync();
-                    }
-                }
-            } catch (e) {}
             // مزامنة للسحابة (إن كانت مفعّلة وليست تطبيقاً قادماً من السحابة)
             try {
                 if (!cloudApplying && typeof syncAllContractsToCloud === 'function') syncAllContractsToCloud();
@@ -8539,12 +9143,35 @@ document.getElementById("reportModal").style.display="block";
         }
         function loadFromLocalStorage() {
             const saved = localStorage.getItem('baladyWasteContractsV3');
+            let fromLocal = null;
             if (saved) {
-                try { allContracts = JSON.parse(saved); } catch(e) { allContracts = []; }
+                try { fromLocal = JSON.parse(saved); } catch(e) { fromLocal = null; }
+            }
+            if (Array.isArray(fromLocal) && fromLocal.length > 0) {
+                allContracts = fromLocal;
+            } else if (window.__EMBEDDED_CONTRACTS__ && Array.isArray(window.__EMBEDDED_CONTRACTS__) && window.__EMBEDDED_CONTRACTS__.length > 0) {
+                allContracts = window.__EMBEDDED_CONTRACTS__;
+                try { localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts)); } catch (e) {}
+                console.log('✓ تم تحميل ' + allContracts.length + ' عقد من البيانات المضمّنة في الملف');
+            } else if (Array.isArray(fromLocal)) {
+                allContracts = fromLocal;
             } else {
                 allContracts = [];
             }
             if (!Array.isArray(allContracts)) allContracts = [];
+            try {
+                const st = window.__EMBEDDED_APP_STATE__;
+                if (st && typeof st === 'object') {
+                    if (Array.isArray(st.extraDistricts) && !localStorage.getItem('baladyExtraDistricts'))
+                        localStorage.setItem('baladyExtraDistricts', JSON.stringify(st.extraDistricts));
+                    if (Array.isArray(st.extraMunicipalities) && !localStorage.getItem('baladyExtraMunicipalities'))
+                        localStorage.setItem('baladyExtraMunicipalities', JSON.stringify(st.extraMunicipalities));
+                    if (Array.isArray(st.binTypes) && !localStorage.getItem('baladyBinTypes'))
+                        localStorage.setItem('baladyBinTypes', JSON.stringify(st.binTypes));
+                    if (Array.isArray(st.extraIsic) && !localStorage.getItem('baladyExtraIsic'))
+                        localStorage.setItem('baladyExtraIsic', JSON.stringify(st.extraIsic));
+                }
+            } catch (eSt) {}
             // إصلاح تواريخ قديمة خاطئة: نهاية القديم يجب أن تكون بعد البداية بسنة تقريباً
             let fixed = false;
             allContracts.forEach(c => {
@@ -8648,6 +9275,101 @@ document.getElementById("reportModal").style.display="block";
             if (fixed) saveToLocalStorage();
         }
 
+        function collectPortableAppState() {
+            function readLS(key) {
+                try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { return []; }
+            }
+            return {
+                version: 1,
+                savedAt: new Date().toISOString(),
+                contracts: allContracts || [],
+                extraDistricts: readLS('baladyExtraDistricts'),
+                extraMunicipalities: readLS('baladyExtraMunicipalities'),
+                binTypes: readLS('baladyBinTypes'),
+                extraIsic: readLS('baladyExtraIsic')
+            };
+        }
+
+        function exportDataBackupJson() {
+            const state = collectPortableAppState();
+            if (!(state.contracts && state.contracts.length)) {
+                showAlert('لا توجد عقود لتصديرها', 'error');
+                return;
+            }
+            const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'balady-contracts-data-' + new Date().toISOString().slice(0, 10) + '.json';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(function() { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 5000);
+            showAlert('تم تنزيل ملف البيانات (' + state.contracts.length + ' عقد). انقله للجهاز الآخر ثم استخدم «استيراد بيانات».', 'success');
+        }
+
+        function importDataBackupJson(event) {
+            const file = event && event.target && event.target.files && event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function() {
+                try {
+                    const raw = JSON.parse(String(reader.result || ''));
+                    let list = [];
+                    let state = null;
+                    if (Array.isArray(raw)) {
+                        list = raw;
+                    } else if (raw && typeof raw === 'object') {
+                        state = raw;
+                        list = Array.isArray(raw.contracts) ? raw.contracts : [];
+                    }
+                    if (!list.length) {
+                        showAlert('ملف البيانات فارغ أو غير صالح', 'error');
+                        return;
+                    }
+                    if (!confirm('استيراد ' + list.length + ' عقد؟\nسيتم دمجها مع العقود الحالية (نفس رقم العقد يُستبدل).')) {
+                        event.target.value = '';
+                        return;
+                    }
+                    const map = {};
+                    (allContracts || []).forEach(function(c) {
+                        if (c && c.contractNumber) map[String(c.contractNumber)] = c;
+                    });
+                    list.forEach(function(c) {
+                        if (c && c.contractNumber) map[String(c.contractNumber)] = c;
+                    });
+                    allContracts = typeof sortContractsByDate === 'function'
+                        ? sortContractsByDate(Object.keys(map).map(function(k) { return map[k]; }))
+                        : Object.keys(map).map(function(k) { return map[k]; });
+                    if (state) {
+                        try {
+                            if (Array.isArray(state.extraDistricts)) localStorage.setItem('baladyExtraDistricts', JSON.stringify(state.extraDistricts));
+                            if (Array.isArray(state.extraMunicipalities)) localStorage.setItem('baladyExtraMunicipalities', JSON.stringify(state.extraMunicipalities));
+                            if (Array.isArray(state.binTypes)) localStorage.setItem('baladyBinTypes', JSON.stringify(state.binTypes));
+                            if (Array.isArray(state.extraIsic)) localStorage.setItem('baladyExtraIsic', JSON.stringify(state.extraIsic));
+                            if (typeof applyCustomBinPrices === 'function') applyCustomBinPrices();
+                        } catch (e2) {}
+                    }
+                    saveToLocalStorage();
+                    if (typeof applyFilters === 'function') applyFilters();
+                    else if (typeof renderTable === 'function') renderTable(allContracts);
+                    showAlert('تم استيراد ' + list.length + ' عقد بنجاح', 'success');
+                } catch (err) {
+                    console.error(err);
+                    showAlert('تعذر قراءة ملف البيانات: ' + (err && err.message ? err.message : err), 'error');
+                }
+                event.target.value = '';
+            };
+            reader.onerror = function() {
+                showAlert('فشل قراءة الملف', 'error');
+                event.target.value = '';
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        function downloadStandaloneHtmlWithData() {
+            exportDataBackupJson();
+        }
+
         function exportCurrentData() {
             const source = (filteredContracts && filteredContracts.length) ? filteredContracts : allContracts;
             if (!source.length) { showAlert('لا توجد بيانات', 'error'); return; }
@@ -8682,10 +9404,10 @@ document.getElementById("reportModal").style.display="block";
                     'الحالة': st.label,
                     'الأيام المتبقية': st.daysLeft,
                     'أيام التأخير': calcDebt(c).days,
-                    'المديونية': calcDebt(c).amount,
-                    'أيام الدائن': calcCreditor(c).days,
-                    'المبلغ الدائن': calcCreditor(c).amount,
-                    'حالة المديونية': calcDebt(c).stopped ? (calcDebt(c).reason || 'متوقف') : (calcDebt(c).days > 0 ? 'جاري' : '-')
+                    'مدين': calcDebt(c).amount,
+                    'الأيام المتبقية': calcCreditor(c).days,
+                    'دائن': calcCreditor(c).amount,
+                    'حالة المدين': calcDebt(c).stopped ? (calcDebt(c).reason || 'متوقف') : (calcDebt(c).days > 0 ? 'جاري' : '-')
                 };
             });
             const ws = XLSX.utils.json_to_sheet(rows);
@@ -8717,19 +9439,7 @@ document.getElementById("reportModal").style.display="block";
                 return;
             }
             allContracts = [];
-            localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));            localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
-            
-            // حفظ فوري على Supabase لجميع العقود (التي تم تعديلها)
-            if (supabaseReady && supabase && !window.__clearingAll && allContracts && allContracts.length > 0) {
-                (allContracts || []).forEach(c => {
-                    if (c && c.contractNumber && !window.__savingToSupabase) {
-                        window.__savingToSupabase = true;
-                        saveToSupabase(c).finally(() => {
-                            window.__savingToSupabase = false;
-                        });
-                    }
-                });
-            }
+            localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
             try { if (typeof clearAllContractsFromCloud === 'function') clearAllContractsFromCloud(); } catch (e) {}
             try {
                 const db = await openPdfDb();
@@ -8974,22 +9684,270 @@ document.getElementById("reportModal").style.display="block";
         })();
     </script>
 
+    <!-- Firebase Realtime Database - مزامنة متكاملة بين الأجهزة -->
     <script>
-        // Cloud sync stubs (Firebase removed — Supabase can be wired later)
-        let cloudApplying = false;
-        function getCloudDb() { return null; }
+        // ⚠️ استبدل القيم أدناه بـ Firebase Config من لوحة التحكم
+        const firebaseConfig = {
+            apiKey: "AIzaSyGo3tZCAq0zRCmQUkECKXFZgzZDm7o0EP8",
+            authDomain: "balady-contracts-a1b2c-ddc06.firebaseapp.com",
+            databaseURL: "https://balady-contracts-a1b2c-ddc06-default-rtdb.firebaseio.com",
+            projectId: "balady-contracts-a1b2c-ddc06",
+            storageBucket: "balady-contracts-a1b2c-ddc06.firebasestorage.app",
+            messagingSenderId: "1023995646709",
+            appId: "1:1023995646709:web:be2f45efc71a184b43abbc",
+            measurementId: "G-H9Y5HM68V9"
+        };
+
+        let firebaseInitialized = false;
+        let cloudApplying = false;      // يمنع حلقة المزامنة عند استقبال تحديث من السحابة
+        let cloudSyncTimer = null;      // تجميع الحفظ السحابي لتقليل الطلبات
+        let cloudReady = false;
+
+        function isFirebaseConfigured() {
+            const id = String(firebaseConfig.projectId || '');
+            const key = String(firebaseConfig.apiKey || '');
+            return id && !id.includes('project-id') && key && !key.includes('YOUR_API');
+        }
+
+        function getCloudDb() {
+            if (!firebaseInitialized || !isFirebaseConfigured()) return null;
+            try { return firebase.database(); } catch (e) { return null; }
+        }
+
         function sanitizeContractKey(num) {
             return String(num || '').replace(/[.#$\[\]\/]/g, '_');
         }
-        function saveContractToCloud(contract) { /* disabled */ }
-        function syncAllContractsToCloud() { /* disabled */ }
-        function deleteContractFromCloud(contractId) { /* disabled */ }
-        function clearAllContractsFromCloud() { /* disabled */ }
-        function applyCloudContracts(cloudMap) { /* disabled */ }
-        function upsertLocalFromCloud(contract) { /* disabled */ }
-        function removeLocalFromCloud(contractNumber) { /* disabled */ }
-        function listenForCloudChanges() { /* disabled */ }
-        function startCloudSync() { /* disabled */ }
+
+        function initializeFirebase() {
+            if (firebaseInitialized) return firebaseInitialized;
+            if (!isFirebaseConfigured()) {
+                console.info('Firebase غير مضبوط بعد — النظام يعمل محلياً فقط');
+                return false;
+            }
+            try {
+                if (!firebase.apps || !firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                firebaseInitialized = true;
+                console.log('✓ Firebase جاهز للمزامنة');
+                return true;
+            } catch (error) {
+                console.warn('فشل تهيئة Firebase:', error.message);
+                return false;
+            }
+        }
+
+        // حفظ عقد واحد في السحابة
+        function saveContractToCloud(contract) {
+            const db = getCloudDb();
+            if (!db || !contract || cloudApplying) return;
+            const id = sanitizeContractKey(contract.contractNumber);
+            if (!id) return;
+            const payload = Object.assign({}, contract, {
+                updatedAt: contract.updatedAt || Date.now(),
+                syncedAt: Date.now()
+            });
+            db.ref('contracts/' + id).set(payload)
+                .then(function() { /* ok */ })
+                .catch(function(err) { console.error('خطأ حفظ سحابي:', err); });
+        }
+
+        // مزامنة العقود واحداً واحداً (لا تمسح عقود الزملاء)
+        function syncAllContractsToCloud() {
+            if (!getCloudDb() || cloudApplying) return;
+            if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
+            cloudSyncTimer = setTimeout(function() {
+                const db = getCloudDb();
+                if (!db || cloudApplying) return;
+                let n = 0;
+                (allContracts || []).forEach(function(c) {
+                    if (!c || !c.contractNumber) return;
+                    const id = sanitizeContractKey(c.contractNumber);
+                    const payload = Object.assign({}, c, {
+                        updatedAt: c.updatedAt || Date.now(),
+                        syncedAt: Date.now()
+                    });
+                    db.ref('contracts/' + id).update(payload);
+                    n++;
+                });
+                if (n) console.log('✓ مزامنة ' + n + ' عقد إلى السحابة');
+            }, 600);
+        }
+
+        function deleteContractFromCloud(contractId) {
+            const db = getCloudDb();
+            if (!db || cloudApplying) return;
+            const id = sanitizeContractKey(contractId);
+            if (!id) return;
+            db.ref('contracts/' + id).remove()
+                .then(function() { console.log('✓ حذف من السحابة:', id); })
+                .catch(function(err) { console.error('خطأ حذف سحابي:', err); });
+        }
+
+        function clearAllContractsFromCloud() {
+            const db = getCloudDb();
+            if (!db) return;
+            db.ref('contracts').remove()
+                .then(function() { console.log('✓ تم مسح كل العقود من السحابة'); })
+                .catch(function(err) { console.error('خطأ مسح سحابي:', err); });
+        }
+
+        // السحابة مصدر الحقيقة بعد الاتصال — كل الأجهزة ترى نفس العقود
+        function applyCloudContracts(cloudMap) {
+            cloudApplying = true;
+            try {
+                // خريطة محلية للمقارنة (تفضيل التعديل المحلي الأحدث)
+                const localMap = {};
+                (allContracts || []).forEach(function(x) {
+                    if (x && x.contractNumber) localMap[String(x.contractNumber)] = x;
+                });
+                const list = [];
+                const seen = {};
+                if (cloudMap && typeof cloudMap === 'object') {
+                    Object.keys(cloudMap).forEach(function(k) {
+                        const c = cloudMap[k];
+                        if (c && typeof c === 'object' && c.contractNumber) {
+                            const id = String(c.contractNumber);
+                            seen[id] = true;
+                            // قفل تحديث محلي → أبقِ النسخة المحلية
+                            if (window.__updateLock && window.__updateLock[c.contractNumber]) {
+                                const existing = localMap[id];
+                                if (existing) { list.push(existing); return; }
+                            }
+                            // إن كانت النسخة المحلية أحدث أو معدّلة يدوياً مؤخراً → أبقِها (يمنع اختفاء الصف عند صدى السحابة)
+                            const local = localMap[id];
+                            if (local) {
+                                const lt = Number(local.updatedAt) || 0;
+                                const ct = Number(c.updatedAt) || 0;
+                                if (lt > ct) { list.push(local); return; }
+                                if (local.manuallyEdited && lt >= ct) { list.push(local); return; }
+                            }
+                            list.push(c);
+                        }
+                    });
+                }
+                // عقود محلية فقط (لم تصل للسحابة بعد) — لا تُحذف من الجدول
+                Object.keys(localMap).forEach(function(id) {
+                    if (!seen[id]) list.push(localMap[id]);
+                });
+                const savedPageCloud = (typeof currentPage !== 'undefined') ? currentPage : 1;
+                allContracts = typeof sortContractsByDate === 'function' ? sortContractsByDate(list) : list;
+                // لا تكتب localStorage هنا إن كنا في حارس كتابة محلية (تجنب الكتابة فوق التعديل)
+                if (!(window.__localWriteUntil && Date.now() < window.__localWriteUntil)) {
+                    localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
+                }
+                if (typeof applyFilters === 'function') applyFilters(true);
+                else if (typeof renderTable === 'function') renderTable(allContracts);
+                if (typeof currentPage !== 'undefined') {
+                    currentPage = savedPageCloud;
+                    if (typeof renderTable === 'function' && typeof filteredContracts !== 'undefined') renderTable(filteredContracts);
+                }
+                if (!cloudReady) {
+                    cloudReady = true;
+                    if (typeof showAlert === 'function') {
+                        showAlert('تمت مزامنة البيانات من السحابة (' + allContracts.length + ' عقد)', 'success');
+                    }
+                }
+            } catch (e) {
+                console.error('خطأ تطبيق بيانات السحابة:', e);
+            } finally {
+                setTimeout(function() { cloudApplying = false; }, 400);
+            }
+        }
+
+        function upsertLocalFromCloud(contract) {
+            if (!contract || !contract.contractNumber) return;
+            // تحقق من قفل التحديث - لا تطبق البيانات إذا كان العقد قيد التحديث المحلي
+            if (window.__updateLock && window.__updateLock[contract.contractNumber]) {
+                console.log('تم تجاهل تحديث سحابي للعقد ' + contract.contractNumber + ' (قيد التحديث المحلي)');
+                return;
+            }
+            // تفضيل النسخة المحلية الأحدث
+            const local = (allContracts || []).find(function(x) {
+                return String(x.contractNumber) === String(contract.contractNumber);
+            });
+            if (local && (Number(local.updatedAt) || 0) > (Number(contract.updatedAt) || 0)) {
+                return;
+            }
+            cloudApplying = true;
+            try {
+                const idx = allContracts.findIndex(function(x) {
+                    return String(x.contractNumber) === String(contract.contractNumber);
+                });
+                if (idx >= 0) allContracts[idx] = contract;
+                else allContracts.push(contract);
+                const savedPageUp = (typeof currentPage !== 'undefined') ? currentPage : 1;
+                allContracts = typeof sortContractsByDate === 'function' ? sortContractsByDate(allContracts) : allContracts;
+                localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
+                if (typeof applyFilters === 'function') applyFilters(true);
+                if (typeof currentPage !== 'undefined') {
+                    currentPage = savedPageUp;
+                    if (typeof renderTable === 'function' && typeof filteredContracts !== 'undefined') renderTable(filteredContracts);
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setTimeout(function() { cloudApplying = false; }, 200);
+            }
+        }
+
+        function removeLocalFromCloud(contractNumber) {
+            if (!contractNumber) return;
+            cloudApplying = true;
+            try {
+                const savedPageRm = (typeof currentPage !== 'undefined') ? currentPage : 1;
+                allContracts = allContracts.filter(function(x) {
+                    return String(x.contractNumber) !== String(contractNumber);
+                });
+                localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
+                if (typeof applyFilters === 'function') applyFilters(true);
+                if (typeof currentPage !== 'undefined') {
+                    currentPage = savedPageRm;
+                    if (typeof renderTable === 'function' && typeof filteredContracts !== 'undefined') renderTable(filteredContracts);
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setTimeout(function() { cloudApplying = false; }, 200);
+            }
+        }
+
+        // استماع فوري للتغييرات من الزملاء
+        function listenForCloudChanges() {
+            const db = getCloudDb();
+            if (!db) return;
+            const ref = db.ref('contracts');
+
+            // التحميل الأول + أي استبدال كامل
+            ref.on('value', function(snapshot) {
+                if (cloudApplying) return;
+                const val = snapshot.val();
+                applyCloudContracts(val || {});
+            });
+        }
+
+        function startCloudSync() {
+            if (!initializeFirebase()) return;
+            listenForCloudChanges();
+            // بعد الاتصال: ارفع النسخة المحلية مرة واحدة إذا كانت السحابة فارغة
+            setTimeout(function() {
+                const db = getCloudDb();
+                if (!db) return;
+                db.ref('contracts').once('value').then(function(snap) {
+                    const val = snap.val();
+                    const empty = !val || !Object.keys(val).length;
+                    if (empty && allContracts && allContracts.length) {
+                        console.log('السحابة فارغة — رفع البيانات المحلية...');
+                        syncAllContractsToCloud();
+                    }
+                });
+            }, 1500);
+        }
+
+        // بدء المزامنة بعد تحميل الصفحة
+        setTimeout(function() {
+            try { startCloudSync(); } catch (e) { console.warn(e); }
+        }, 1200);
     </script>
 
     <!-- تأكيد منع كليك يمين بعد تحميل كل السكربتات -->
