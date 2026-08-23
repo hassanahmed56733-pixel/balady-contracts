@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>نظام إدارة عقود النفايات من بلدي</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <!-- مكتبة QR تدعم UTF-8 والعربية بشكل صحيح -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+    <style>
+       #clientsMap { width: 100%; height: 480px; border-radius: 10px; border: 2px solid #e2e8f0; z-index: 1; }
+        .leaflet-popup-content { font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; text-align: right; min-width: 180px; }
+        .map-legend-pin { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-left: 4px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html {
+            height: auto;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);
+            padding: 6px;
+            min-height: 100vh;
+            min-height: 100dvh;
+            height: auto;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y pinch-zoom;
+        }
+        .container {
+            max-width: 1900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+            overflow: visible;
+        }
+        .header {
+            background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);
+            color: white;
+            padding: 10px 16px;
+            text-align: center;
+        }
+        .header h1 { font-size: 1.35em; margin-bottom: 2px; }
+        .header p { opacity: 0.9; font-size: 0.82em; }
+        .upload-section {
+            background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+            padding: 10px 14px;
+            border-bottom: 2px solid #0f766e;
+        }
+        .upload-title { font-size: 1em; font-weight: bold; color: #134e4a; margin-bottom: 8px; }
+        .upload-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .upload-box {
+            background: white;
+            border: 2px dashed #0f766e;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .upload-box:hover {
+            border-color: #14b8a6;
+            background: #f0fdfa;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(15,118,110,0.15);
+        }
+        .upload-box input { display: none; }
+        .upload-icon { font-size: 1.6em; margin-bottom: 2px; }
+        .upload-text { color: #0f766e; font-weight: 700; font-size: 0.85em; }
+        .upload-hint { color: #64748b; font-size: 0.72em; }
+        .buttons-row { display: flex; gap: 6px; flex-wrap: wrap; }
+        button {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 5px;
+            font-size: 0.8em;
+            cursor: pointer;
+            font-weight: 600;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #0f766e; color: white; }
+        .btn-primary:hover { background: #0d9488; }
+        .btn-danger { background: #dc2626; color: white; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-success { background: #16a34a; color: white; }
+        .btn-success:hover { background: #15803d; }
+        .btn-info { background: #0891b2; color: white; }
+        .btn-info:hover { background: #0e7490; }
+        .btn-warning { background: #d97706; color: white; }
+        .btn-warning:hover { background: #b45309; }
+        .btn-purple { background: #7c3aed; color: white; }
+        .btn-purple:hover { background: #6d28d9; }
+        .alert {
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            display: none;
+            font-size: 0.9em;
+            white-space: pre-line;
+        }
+        .alert-success { background: #dcfce7; color: #166534; border: 1px solid #86efac; display: block; }
+        .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; display: block; }
+        .alert-info { background: #e0f2fe; color: #075985; border: 1px solid #7dd3fc; display: block; }
+        .filters-section {
+            background: #f8fafc;
+            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .filters-title { font-size: 0.95em; font-weight: bold; color: #1e293b; margin-bottom: 6px; }
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 6px;
+        }
+        .filter-group { display: flex; flex-direction: column; }
+        .filter-group label { font-weight: 600; margin-bottom: 2px; color: #475569; font-size: 0.75em; }
+        .filter-group input, .filter-group select {
+            padding: 5px 7px;
+            border: 1px solid #e2e8f0;
+            border-radius: 5px;
+            font-size: 0.8em;
+            font-family: inherit;
+        }
+        .filter-group input:focus, .filter-group select:focus {
+            outline: none;
+            border-color: #0f766e;
+        }
+        .legend {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding: 5px 12px;
+            background: #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.78em;
+            align-items: center;
+        }
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .dot-green { background: #16a34a; }
+        .dot-yellow { background: #eab308; }
+        .dot-red { background: #dc2626; }
+        .table-wrapper { padding: 8px 10px 80px; overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; touch-action: pan-x pan-y; max-width: 100%; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.72em; }
+        thead {
+            background: #0f766e;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        th { padding: 8px 6px; text-align: right; font-weight: 600; border-bottom: 2px solid #134e4a; }
+        td { padding: 6px 4px; border-bottom: 1px solid #e2e8f0; }
+        tbody tr:hover { background: #f8fafc; }
+        tbody tr { transition: background 0.15s; }
+        a { color: #0369a1; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .status-green { color: #16a34a; font-weight: 600; }
+        .status-yellow { color: #ca8a04; font-weight: 600; }
+        .status-red { color: #dc2626; font-weight: 600; }
+        .modal { display: none; position: fixed; z-index: 2000; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); }
+        .modal-content { background: white; border-radius: 12px; padding: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); position: relative; margin: 10% auto; max-width: 800px; max-height: 90vh; overflow-y: auto; }
+        .modal-close { position: absolute; top: 8px; left: 12px; font-size: 1.8em; font-weight: 300; cursor: pointer; color: #64748b; }
+        .modal-close:hover { color: #000; }
+        .report-container { background: white; border-radius: 8px; padding: 0; overflow: hidden; }
+        .report-header { background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%); color: white; padding: 12px 16px; text-align: right; }
+        .report-header h2 { font-size: 1.2em; margin-bottom: 4px; }
+        .report-header p { opacity: 0.9; font-size: 0.85em; margin: 0; }
+        .btn-small { padding: 4px 8px; font-size: 0.7em; border-radius: 3px; border: none; cursor: pointer; font-weight: 600; }
+        .row-tab-btn { background: #0f766e; color: white; }
+        .row-tab-btn:hover { background: #0d9488; }
+        .row-tab-btn.active { background: #14b8a6; box-shadow: 0 0 8px rgba(20,184,166,0.4); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .user-add-row { display: flex; gap: 8px; margin-bottom: 12px; }
+        .user-add-row > div { flex: 1; }
+        .user-add-row input { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 0.85em; }
+        .users-list { display: grid; gap: 8px; }
+        .user-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #f1f5f9; border-radius: 6px; font-size: 0.85em; }
+        .user-info { flex: 1; }
+        .user-email { font-weight: 600; color: #134e4a; }
+        .user-role { font-size: 0.75em; color: #64748b; }
+        .user-actions { display: flex; gap: 6px; }
+        .btn-xs { padding: 4px 8px; font-size: 0.7em; border-radius: 3px; border: none; cursor: pointer; }
+        .btn-xs-danger { background: #dc2626; color: white; }
+        .btn-xs-danger:hover { background: #b91c1c; }
+    </style>
+</head>
+<body>
+    <div id="loginOverlay" class="modal show" style="display:flex;align-items:center;justify-content:center;">
+        <div class="modal-content" style="max-width:380px;">
+            <div style="text-align:center;margin-bottom:20px;">
+                <div style="font-size:3em;margin-bottom:10px;">🏛️</div>
+                <h1 style="color:#134e4a;margin:0;font-size:1.3em;">نظام إدارة عقود النفايات</h1>
+                <p style="color:#64748b;font-size:0.9em;margin-top:4px;">من بلدية المدينة المنورة</p>
+            </div>
+            <div id="loginError" style="display:none;padding:10px;border-radius:6px;margin-bottom:12px;font-size:0.85em;text-align:center;"></div>
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-weight:600;margin-bottom:6px;color:#475569;font-size:0.85em;">البريد الإلكتروني</label>
+                <input type="email" id="loginEmail" placeholder="your@example.com" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:6px;font-size:1em;font-family:inherit;direction:ltr;">
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="display:block;font-weight:600;margin-bottom:6px;color:#475569;font-size:0.85em;">كلمة المرور</label>
+                <input type="password" id="loginPassword" placeholder="••••••••" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:6px;font-size:1em;font-family:inherit;" onkeydown="if(event.key==='Enter'){event.preventDefault();attemptLogin();}">
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button type="button" class="btn-primary" style="flex:1;padding:10px;" onclick="attemptLogin()">🔓 دخول</button>
+                <button type="button" id="registerAccountButton" class="btn-info" style="flex:1;padding:10px;" onclick="registerAccount()">📝 تسجيل جديد</button>
+            </div>
+            <p style="color:#64748b;font-size:0.75em;margin-top:12px;text-align:center;">النظام آمن — بيانات مشفرة بالسحابة.</p>
+        </div>
+    </div>
+
+    <div id="appRoot" class="container" style="display:none;">
+        <div class="header">
+            <h1>🏛️ نظام إدارة عقود النفايات</h1>
+            <p>بلدية المدينة المنورة | <span id="loginStatus">تسجيل الدخول...</span></p>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <div class="upload-section">
+            <div class="upload-title">📤 إضافة عقود</div>
+            <div class="upload-container">
+                <div class="upload-box" onclick="document.getElementById('manualUploadBtn').click();" title="أدخل بيانات عقد واحد يدويًا">
+                    <div class="upload-icon">✏️</div>
+                    <div class="upload-text">إدخال يدوي</div>
+                    <div class="upload-hint">عقد واحد</div>
+                </div>
+                <div class="upload-box" onclick="document.getElementById('uploadFileBtn').click();" title="ارفع ملف Excel بقائمة عقود">
+                    <div class="upload-icon">📊</div>
+                    <div class="upload-text">استيراد Excel</div>
+                    <div class="upload-hint">عدة عقود</div>
+                </div>
+                <div class="upload-box" onclick="document.getElementById('pdfUploadBtn').click();" title="ارفع ملف PDF لعقد">
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-text">رفع PDF</div>
+                    <div class="upload-hint">ملف عقد</div>
+                </div>
+                <div class="upload-box" onclick="exportCurrentData();" title="حمل جميع البيانات كملف Excel">
+                    <div class="upload-icon">⬇️</div>
+                    <div class="upload-text">تصدير Excel</div>
+                    <div class="upload-hint">البيانات الحالية</div>
+                </div>
+                <div class="upload-box" onclick="exportTemplate();" title="قالب فارغ لملء البيانات">
+                    <div class="upload-icon">📋</div>
+                    <div class="upload-text">قالب Excel</div>
+                    <div class="upload-hint">للتعبئة</div>
+                </div>
+                <div class="upload-box" onclick="importStandaloneHtml();" title="استيراد بيانات مُصدّرة سابقًا">
+                    <div class="upload-icon">⬆️</div>
+                    <div class="upload-text">استيراد بيانات</div>
+                    <div class="upload-hint">ملف احتياطي</div>
+                </div>
+                <input type="file" id="manualUploadBtn" style="display:none;">
+                <input type="file" id="uploadFileBtn" accept=".xlsx,.xls,.csv" style="display:none;">
+                <input type="file" id="pdfUploadBtn" accept=".pdf,.PDF" style="display:none;">
+            </div>
+            <div class="buttons-row" style="margin-top:8px;">
+                <button class="btn-primary" id="btnForceSync" style="display:none;" onclick="window.forceSyncLocalContracts()">☁️ مزامنة</button>
+                <button class="btn-info" id="btnUsersMgmt" style="display:none;" onclick="openUsersModal()">🔑 إدارة المستخدمين</button>
+                <button class="btn-warning" onclick="fillClaimsMonthSelect();document.getElementById('claimsModal').style.display='block';" title="مطالبات الشهر المختار">📅 تقرير المطالبات</button>
+                <button class="btn-purple" onclick="document.getElementById('mapReportModal').style.display='block';applyMapReportFilters();" title="خريطة تفاعلية للعقود">🗺️ الخريطة</button>
+                <button class="btn-success" onclick="showUpcomingClaims();" title="العقود المنتهية هذا الشهر">📍 مطالبات اليوم</button>
+                <button class="btn-danger" onclick="clearAllData()" title="حذف جميع العقود والملفات (يحتاج كلمة سر)">🗑️ مسح الكل</button>
+                <button class="btn-info" onclick="logoutApp()" title="تسجيل الخروج">🚪 خروج</button>
+            </div>
+        </div>
+
+        <div class="filters-section">
+            <div class="filters-title">🔍 البحث والفلاتر</div>
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label>البحث</label>
+                    <input type="text" id="searchInput" placeholder="رقم/عميل/هاتف" onkeyup="applyFilters()">
+                </div>
+                <div class="filter-group">
+                    <label>البلدية</label>
+                    <select id="filterMunicipality" onchange="applyFilters()">
+                        <option value="">الكل</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>الحالة</label>
+                    <select id="filterStatus" onchange="applyFilters()">
+                        <option value="">الكل</option>
+                        <option value="active">ساري</option>
+                        <option value="warning">تحذير</option>
+                        <option value="expired">منتهي</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>حجم الحاوية</label>
+                    <select id="filterBinSize" onchange="applyFilters()">
+                        <option value="">الكل</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>المصدر</label>
+                    <select id="filterSource" onchange="applyFilters()">
+                        <option value="">الكل</option>
+                        <option value="بلدي">بلدي</option>
+                        <option value="دغل">دغل</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>ملف PDF</label>
+                    <select id="filterHasPdf" onchange="applyFilters()">
+                        <option value="">الكل</option>
+                        <option value="yes">موجود</option>
+                        <option value="no">غير موجود</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-top:8px;">
+                <button class="btn-info" onclick="resetFilters();applyFilters();" style="padding:6px 12px;font-size:0.8em;">🔄 إعادة تعيين الفلاتر</button>
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item"><span class="legend-dot dot-green"></span><span>ساري</span></div>
+            <div class="legend-item"><span class="legend-dot dot-yellow"></span><span>ينتهي قريبًا</span></div>
+            <div class="legend-item"><span class="legend-dot dot-red"></span><span>منتهي</span></div>
+        </div>
+
+        <div class="table-wrapper">
+            <table id="contractsTable">
+                <thead>
+                    <tr>
+                        <th>رقم العقد</th>
+                        <th>اسم العميل</th>
+                        <th>السجل التجاري</th>
+                        <th>البلدية</th>
+                        <th>الجوال</th>
+                        <th>حجم الحاوية</th>
+                        <th>العدد</th>
+                        <th>نهاية العقد</th>
+                        <th>الحالة</th>
+                        <th>الأيام</th>
+                        <th>PDF</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+
+        <div style="padding:12px;text-align:center;color:#64748b;font-size:0.85em;">
+            <span id="recordCount">لا توجد عقود</span> | 
+            <button class="btn-info" style="padding:4px 8px;font-size:0.8em;" onclick="printRecords()">🖨️ طباعة</button>
+        </div>
+    </div>
+
+    <script>
+        const DELETE_PASSWORD = '1234';
+        let allContracts = [];
+        let filteredContracts = [];
+        let currentPage = 1;
+        let priceTable = {
+            'ياردة': 1500,
+            '2 ياردة': 3000,
+            '4 ياردة': 6000,
+            'مكبس 2 ياردة': 3500,
+            'مكبس 4 ياردة': 7000,
+            'مكبس 7 ياردة': 10000,
+            'غرفة 2 ياردة': 2500,
+            'حاوية 20 قدم': 8000,
+            'حاوية 40 قدم': 12000
+        };
+        let _pwdResolve = null;
+
+        function askPassword(message, title) {
+            // إدخال مباشر موثوق على الكمبيوتر والجوال؛ لا يعتمد على نافذة قد تختفي خلف الواجهة.
+            const value = window.prompt((title || 'كلمة السر') + '\n' + (message || 'أدخل كلمة السر للمتابعة'), '');
+            return Promise.resolve(value);
+        }
+        function confirmPasswordModal() {
+            const v = (document.getElementById('passwordModalInput').value || '');
+            document.getElementById('passwordModal').style.display = 'none';
+            document.getElementById('passwordModalInput').value = '';
+            if (_pwdResolve) { const r = _pwdResolve; _pwdResolve = null; r(v); }
+        }
+        function cancelPasswordModal() {
+            document.getElementById('passwordModal').style.display = 'none';
+            document.getElementById('passwordModalInput').value = '';
+            if (_pwdResolve) { const r = _pwdResolve; _pwdResolve = null; r(null); }
+        }
+
+        // ===== إدارة أنواع الحاويات والأسعار =====
+        function applyCustomBinPrices() {
+            try {
+                const list = getBinTypes();
+                list.forEach(function(item) {
+                    if (item && item.type) priceTable[item.type] = item.price;
+                });
+            } catch (e) {}
+        }
+        function getBinTypes() {
+            const stored = localStorage.getItem('baladyBinTypes');
+            return stored ? JSON.parse(stored) : [];
+        }
+
+        function formatCurrency(num) {
+            return Number(num).toLocaleString('ar-SA', { minimumFractionDigits: 0 });
+        }
+        function formatDate(date) {
+            if (!date) return '-';
+            const d = new Date(date + 'T00:00:00Z');
+            if (isNaN(d.getTime())) return date;
+            return d.toLocaleDateString('ar-SA');
+        }
+        function esc(text) {
+            if (!text) return '';
+            return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        function getContractStatus(endDate) {
+            if (!endDate) return { label: 'غير محدد', color: '#64748b', daysLeft: null };
+            const d = new Date(endDate + 'T00:00:00Z');
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            const daysLeft = Math.floor((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            if (daysLeft < 0) return { label: 'منتهي', color: '#dc2626', daysLeft: daysLeft };
+            if (daysLeft <= 30) return { label: 'تحذير', color: '#ca8a04', daysLeft: daysLeft };
+            return { label: 'ساري', color: '#16a34a', daysLeft: daysLeft };
+        }
+
+        function renderTable(contracts) {
+            const tbody = document.getElementById('tableBody');
+            if (!contracts.length) {
+                tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;color:#94a3b8;">لا توجد عقود</td></tr>';
+                document.getElementById('recordCount').textContent = 'لا توجد عقود';
+                return;
+            }
+            tbody.innerHTML = contracts.map(function(c) {
+                const st = getContractStatus(c.oldEndDate);
+                const statusClass = st.label === 'ساري' ? 'status-green' : st.label === 'تحذير' ? 'status-yellow' : 'status-red';
+                return '<tr>' +
+                    '<td>' + (c.contractNumber || '-') + '</td>' +
+                    '<td>' + (c.customerName || '-') + '</td>' +
+                    '<td>' + (c.commercialRegistry || '-') + '</td>' +
+                    '<td>' + (c.municipality || '-') + '</td>' +
+                    '<td><a href="tel:' + (c.phone || '').replace(/[^\d+]/g, '') + '" style="color:#0369a1;">' + (c.phone || '-') + '</a></td>' +
+                    '<td>' + (c.binSize || '-') + '</td>' +
+                    '<td>' + (c.quantity || 1) + '</td>' +
+                    '<td>' + formatDate(c.oldEndDate) + '</td>' +
+                    '<td class="' + statusClass + '">' + st.label + '</td>' +
+                    '<td style="text-align:center;">' + (st.daysLeft !== null ? st.daysLeft : '-') + '</td>' +
+                    '<td style="text-align:center;">' + (c.hasPdf ? '✅' : '❌') + '</td>' +
+                    '<td style="white-space:nowrap;">' +
+                        '<button class="btn-small row-tab-btn" onclick="openEditContract(\'' + esc(c.contractNumber) + '\')" title="تعديل البيانات">✏️</button> ' +
+                        '<button class="btn-small row-tab-btn" style="background:#0d9488;color:white;" onclick="window.openCompleteMissingForm(\'' + esc(c.contractNumber) + '\');" title="استكمال الحقول الفارغة فقط">استكمال</button> ' +
+                        '<button class="btn-small row-tab-btn" style="background:#0891b2;color:white;" onclick="document.getElementById(\'pdfUploadBtn\').click();" title="إضافة ملف PDF للعقد">PDF</button> ' +
+                        '<button class="btn-small row-tab-btn" style="background:#dc2626;color:white;" onclick="deleteContract(\'' + esc(c.contractNumber) + '\')" title="حذف هذا العقد">🗑️</button>' +
+                    '</td>' +
+                    '</tr>';
+            }).join('');
+            document.getElementById('recordCount').textContent = contracts.length + ' عقد';
+        }
+
+        function applyFilters() {
+            const q = (document.getElementById('searchInput').value || '').toLowerCase();
+            const muni = (document.getElementById('filterMunicipality').value || '').toLowerCase();
+            const st = (document.getElementById('filterStatus').value || '').toLowerCase();
+            const bin = (document.getElementById('filterBinSize').value || '').toLowerCase();
+            const src = (document.getElementById('filterSource').value || '').toLowerCase();
+            const pdf = (document.getElementById('filterHasPdf').value || '').toLowerCase();
+            
+            filteredContracts = allContracts.filter(function(c) {
+                if (q && !String(c.contractNumber + ' ' + (c.customerName || '') + ' ' + (c.phone || '')).toLowerCase().includes(q)) return false;
+                if (muni && String(c.municipality || '').toLowerCase() !== muni) return false;
+                if (bin && String(c.binSize || '').toLowerCase() !== bin) return false;
+                if (src && String(c.source || 'بلدي').toLowerCase() !== src) return false;
+                if (pdf === 'yes' && !c.hasPdf) return false;
+                if (pdf === 'no' && c.hasPdf) return false;
+                if (st) {
+                    const status = getContractStatus(c.oldEndDate).label;
+                    if (st === 'active' && status !== 'ساري') return false;
+                    if (st === 'warning' && status !== 'تحذير') return false;
+                    if (st === 'expired' && status !== 'منتهي') return false;
+                }
+                return true;
+            });
+            renderTable(filteredContracts);
+        }
+
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterMunicipality').value = '';
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterBinSize').value = '';
+            document.getElementById('filterSource').value = '';
+            document.getElementById('filterHasPdf').value = '';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        function printRecords() {
+            window.print();
+        }
+
+        async function openEditContract(num) {
+            const pass = await askPassword('أدخل كلمة سر التعديل للمتابعة', 'تعديل بيانات العقد');
+            if (pass === null) return;
+            if (pass !== DELETE_PASSWORD) {
+                showAlert('كلمة السر غير صحيحة', 'error');
+                return;
+            }
+            const c = allContracts.find(x => x.contractNumber === num);
+            if (!c) return;
+            
+            const html = `
+                <div class="report-container">
+                    <div class="report-header">
+                        <h2>✏️ تعديل بيانات العقد</h2>
+                        <p style="margin:0;">عدّل الحقول ثم احفظ</p>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.9em;padding:12px;">
+                        <label>رقم العقد<br><input id="edit_contractNumber" value="${esc(c.contractNumber||'')}" readonly style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;background:#f1f5f9;"></label>
+                        <label>اسم العميل<br><input id="edit_customerName" value="${esc(c.customerName||'')}" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;"></label>
+                        <label>السجل التجاري<br><input id="edit_commercialRegistry" value="${esc(c.commercialRegistry||'')}" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;"></label>
+                        <label>البلدية<br><input id="edit_municipality" value="${esc(c.municipality||'')}" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;"></label>
+                        <label>الجوال<br><input id="edit_phone" value="${esc(c.phone||'')}" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;direction:ltr;"></label>
+                        <label>البريد الإلكتروني<br><input id="edit_email" value="${esc(c.email||'')}" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;direction:ltr;"></label>
+                        <label>حجم الحاوية<br>
+                            <select id="edit_binSize" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;">
+                                ${Object.keys(priceTable).map(k => '<option value="'+k+'"'+(c.binSize===k?' selected':'')+'>'+k+'</option>').join('')}
+                            </select>
+                        </label>
+                        <label>العدد<br><input id="edit_quantity" type="number" min="1" max="40" value="${c.quantity || 1}" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;"></label>
+                        <label>السعر (الواحد)<br><input id="edit_pricePerUnit" type="number" step="0.01" value="${c.pricePerUnit || 0}" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;direction:ltr;"></label>
+                        <label>تاريخ البداية القديم<br><input id="edit_oldStartDate" type="date" value="${c.oldStartDate||''}" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;"></label>
+                        <label>تاريخ النهاية القديم<br><input id="edit_oldEndDate" type="date" value="${c.oldEndDate||''}" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;"></label>
+                    </div>
+                    <div class="buttons-row" style="margin-top:16px;justify-content:center;padding:0 12px 12px;">
+                        <button class="btn-success" type="button" onclick="saveEditContract('${esc(num)}')">💾 حفظ التعديلات</button>
+                        <button class="btn-danger" type="button" onclick="closeEditModal()">إلغاء</button>
+                    </div>
+                </div>`;
+            const box = document.getElementById('editContent');
+            const modal = document.getElementById('editModal');
+            if (!box || !modal) { showAlert('تعذر فتح النموذج', 'error'); return; }
+            box.innerHTML = html;
+            modal.style.display = 'block';
+        }
+
+        function saveEditContract(num) {
+            const c = allContracts.find(x => x.contractNumber === num);
+            if (!c) return;
+            c.customerName = document.getElementById('edit_customerName').value || '';
+            c.commercialRegistry = document.getElementById('edit_commercialRegistry').value || '';
+            c.municipality = document.getElementById('edit_municipality').value || '';
+            c.phone = document.getElementById('edit_phone').value || '';
+            c.email = document.getElementById('edit_email').value || '';
+            c.binSize = document.getElementById('edit_binSize').value || '';
+            c.quantity = parseInt(document.getElementById('edit_quantity').value) || 1;
+            c.pricePerUnit = parseFloat(document.getElementById('edit_pricePerUnit').value) || 0;
+            c.oldStartDate = document.getElementById('edit_oldStartDate').value || '';
+            c.oldEndDate = document.getElementById('edit_oldEndDate').value || '';
+            c.updatedAt = Date.now();
+            localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
+            closeEditModal();
+            applyFilters();
+            showAlert('تم حفظ التعديلات', 'success');
+        }
+
+        async function openCompleteMissingForm(num) {
+            if (typeof window.isCurrentUserAdmin === 'function' && !window.isCurrentUserAdmin()) {
+                showAlert('الاستكمال متاح للمدير فقط.', 'error');
+                return;
+            }
+            const pass = await askPassword('أدخل كلمة سر الاستكمال للمتابعة', 'استكمال بيانات العقد');
+            if (pass === null) return;
+            if (pass !== DELETE_PASSWORD) {
+                showAlert('كلمة السر غير صحيحة', 'error');
+                return;
+            }
+            const c = allContracts.find(x => x.contractNumber === num);
+            if (!c) return;
+            
+            const html = `
+                <div class="report-container">
+                    <div class="report-header" style="background:linear-gradient(135deg,#0d9488,#0f766e);">
+                        <h2>📝 استكمال البيانات الناقصة</h2>
+                        <p style="margin:0;">الحقول الفارغة فقط قابلة للتحرير</p>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.9em;padding:12px;">
+                        <label>رقم العقد<br><input value="${esc(c.contractNumber||'')}" readonly style="width:100%;padding:6px;border:1px solid #e2e8f0;border-radius:5px;font-family:inherit;background:#f1f5f9;"></label>
+                        <label>اسم العميل<br><input id="cm_customerName" value="${esc(c.customerName||'')}" ${c.customerName ? 'readonly' : ''} style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;${c.customerName ? 'background:#f1f5f9;' : 'background:#f0fdfa;border-color:#14b8a6;'}"></label>
+                        <label>السجل التجاري<br><input id="cm_commercialRegistry" value="${esc(c.commercialRegistry||'')}" ${c.commercialRegistry ? 'readonly' : ''} style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;${c.commercialRegistry ? 'background:#f1f5f9;' : 'background:#f0fdfa;border-color:#14b8a6;'}"></label>
+                        <label>البلدية<br><input id="cm_municipality" value="${esc(c.municipality||'')}" ${c.municipality ? 'readonly' : ''} style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;${c.municipality ? 'background:#f1f5f9;' : 'background:#f0fdfa;border-color:#14b8a6;'}"></label>
+                        <label>الجوال<br><input id="cm_phone" value="${esc(c.phone||'')}" ${c.phone ? 'readonly' : ''} style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;direction:ltr;${c.phone ? 'background:#f1f5f9;' : 'background:#f0fdfa;border-color:#14b8a6;'}"></label>
+                        <label>البريد الإلكتروني<br><input id="cm_email" value="${esc(c.email||'')}" ${c.email ? 'readonly' : ''} style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;direction:ltr;${c.email ? 'background:#f1f5f9;' : 'background:#f0fdfa;border-color:#14b8a6;'}"></label>
+                        <label>حجم الحاوية<br>
+                            <select id="cm_binSize" ${c.binSize ? 'disabled' : ''} style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;${c.binSize ? 'background:#f1f5f9;color:#64748b;' : 'background:#f0fdfa;border-color:#14b8a6;'}">
+                                <option value="">— اختر —</option>
+                                ${Object.keys(priceTable).map(k => '<option value="'+k+'"'+(c.binSize===k?' selected':'')+'>'+k+'</option>').join('')}
+                            </select>
+                        </label>
+                        <label>العدد<br><input id="cm_quantity" type="number" min="1" max="99" value="${c.quantity||1}" ${c.quantity > 0 ? 'readonly' : ''} style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;font-family:inherit;${c.quantity > 0 ? 'background:#f1f5f9;' : 'background:#f0fdfa;border-color:#14b8a6;'}"></label>
+                    </div>
+                    <div class="buttons-row" style="margin-top:16px;justify-content:center;padding:0 12px 12px;">
+                        <button class="btn-success" type="button" onclick="saveCompleteMissing('${esc(num)}')">💾 حفظ الاستكمال</button>
+                        <button class="btn-danger" type="button" onclick="closeEditModal()">إلغاء</button>
+                    </div>
+                </div>`;
+            const box = document.getElementById('editContent');
+            const modal = document.getElementById('editModal');
+            if (!box || !modal) { showAlert('تعذر فتح النموذج', 'error'); return; }
+            box.innerHTML = html;
+            modal.style.display = 'block';
+        }
+
+        function saveCompleteMissing(num) {
+            const c = allContracts.find(x => x.contractNumber === num);
+            if (!c) return;
+            if (!c.customerName) c.customerName = document.getElementById('cm_customerName').value || '';
+            if (!c.commercialRegistry) c.commercialRegistry = document.getElementById('cm_commercialRegistry').value || '';
+            if (!c.municipality) c.municipality = document.getElementById('cm_municipality').value || '';
+            if (!c.phone) c.phone = document.getElementById('cm_phone').value || '';
+            if (!c.email) c.email = document.getElementById('cm_email').value || '';
+            if (!c.binSize) c.binSize = document.getElementById('cm_binSize').value || '';
+            if (!c.quantity || c.quantity <= 0) c.quantity = parseInt(document.getElementById('cm_quantity').value) || 1;
+            c.updatedAt = Date.now();
+            localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
+            closeEditModal();
+            applyFilters();
+            showAlert('تم استكمال البيانات', 'success');
+        }
+
+        async function deleteContract(num) {
+            if (!confirm('هل أنت متأكد من حذف هذا العقد؟')) return;
+            const pass = await askPassword('أدخل كلمة سر الحذف', 'حذف عقد');
+            if (pass === null) return;
+            if (pass !== DELETE_PASSWORD) {
+                showAlert('كلمة السر غير صحيحة — لم يتم الحذف', 'error');
+                return;
+            }
+            allContracts = allContracts.filter(c => c.contractNumber !== num);
+            localStorage.setItem('baladyWasteContractsV3', JSON.stringify(allContracts));
+            applyFilters();
+            showAlert('تم الحذف', 'success');
+        }
+
+        function showAlert(msg, type) {
+            const box = document.getElementById('alertContainer');
+            const div = document.createElement('div');
+            div.className = 'alert alert-' + type;
+            div.textContent = msg;
+            box.innerHTML = '';
+            box.appendChild(div);
+            setTimeout(() => div.remove(), 8000);
+        }
+
+        function loadContracts() {
+            try {
+                const stored = localStorage.getItem('baladyWasteContractsV3');
+                allContracts = stored ? JSON.parse(stored) : [];
+            } catch (e) {
+                console.error('تعذر تحميل العقود:', e);
+                allContracts = [];
+            }
+            applyFilters();
+            populateFilterSelects();
+        }
+
+        function populateFilterSelects() {
+            const muniSet = new Set(allContracts.map(c => c.municipality).filter(m => m));
+            const binSet = new Set(allContracts.map(c => c.binSize).filter(b => b));
+            const muniSelect = document.getElementById('filterMunicipality');
+            const binSelect = document.getElementById('filterBinSize');
+            if (muniSelect) {
+                muniSelect.innerHTML = '<option value="">الكل</option>' +
+                    Array.from(muniSet).map(m => '<option value="' + esc(m) + '">' + esc(m) + '</option>').join('');
+            }
+            if (binSelect) {
+                binSelect.innerHTML = '<option value="">الكل</option>' +
+                    Array.from(binSet).map(b => '<option value="' + esc(b) + '">' + esc(b) + '</option>').join('');
+            }
+        }
+
+        function attemptLogin() {
+            showAlert('قم بتسجيل الدخول عبر Supabase', 'info');
+        }
+
+        function registerAccount() {
+            showAlert('قم بالتسجيل عبر Supabase', 'info');
+        }
+
+        function logoutApp() {
+            if (typeof window.logoutApp === 'function') window.logoutApp();
+            else location.reload();
+        }
+
+        window.addEventListener('load', function() {
+            loadContracts();
+            try {
+                document.getElementById('appRoot').style.display = 'block';
+                document.getElementById('loginOverlay').style.display = 'none';
+            } catch (e) {}
+        });
+
+        window.onclick = function(e) {
+            if (e.target.id === 'editModal') closeEditModal();
+        };
+    </script>
+
+    <div id="editModal" class="modal" style="z-index:2000;">
+        <div class="modal-content" style="max-width:600px;">
+            <span class="modal-close" onclick="closeEditModal()">&times;</span>
+            <div id="editContent"></div>
+        </div>
+    </div>
+
+    <div id="passwordModal" class="modal" style="z-index:10000;">
+        <div class="modal-content" style="max-width:400px;margin:15% auto;">
+            <div style="font-weight:700;color:#134e4a;margin-bottom:10px;font-size:1.05em;" id="passwordModalTitle">كلمة السر</div>
+            <p id="passwordModalMsg" style="color:#475569;font-size:0.9em;margin-bottom:10px;"></p>
+            <input type="password" id="passwordModalInput" autocomplete="current-password" placeholder="••••••••"
+                style="width:100%;padding:10px 12px;border:2px solid #cbd5e1;border-radius:8px;font-size:1.1em;font-family:inherit;letter-spacing:3px;direction:ltr;text-align:center;"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();confirmPasswordModal();}">
+            <div class="buttons-row" style="margin-top:14px;justify-content:center;">
+                <button class="btn-success" type="button" onclick="confirmPasswordModal()">تأكيد</button>
+                <button class="btn-danger" type="button" onclick="cancelPasswordModal()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="usersModal" class="modal" style="z-index:3100;">
+        <div class="modal-content" style="max-width:520px;margin:6% auto;">
+            <span class="modal-close" onclick="closeUsersModal()">&times;</span>
+            <div style="font-weight:800;color:#134e4a;font-size:1.15em;margin-bottom:4px;">🔑 إدارة المستخدمين</div>
+            <div class="buttons-row" style="margin-top:14px;justify-content:center;">
+                <button type="button" class="btn-primary" onclick="closeUsersModal()">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="claimsModal" class="modal" style="z-index:2000;">
+        <div class="modal-content" style="max-width:600px;">
+            <span class="modal-close" onclick="document.getElementById('claimsModal').style.display='none'">&times;</span>
+            <div style="font-weight:800;color:#134e4a;font-size:1.15em;margin-bottom:10px;">📅 تقرير المطالبات</div>
+            <select id="claimsMonthSelect" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:5px;margin-bottom:10px;font-family:inherit;"></select>
+            <button class="btn-primary" style="width:100%;padding:10px;" onclick="showClaimsForSelectedMonth()">عرض المطالبات</button>
+        </div>
+    </div>
+
+    <div id="mapReportModal" class="modal" style="z-index:2000;">
+        <div class="modal-content" style="max-width:900px;">
+            <span class="modal-close" onclick="closeMapReport()">&times;</span>
+            <div style="font-weight:800;color:#134e4a;font-size:1.15em;margin-bottom:10px;">🗺️ خريطة العقود</div>
+            <div id="clientsMap"></div>
+        </div>
+    </div>
+
+    <!-- طبقة Supabase: لا توجد كلمات مرور أو مفاتيح إدارية داخل الصفحة -->
+    <script src="supabase-client.js"></script>
+
+</body>
+</html>
