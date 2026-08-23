@@ -417,6 +417,8 @@
             display: none; white-space: pre-wrap; direction: ltr; text-align: left;
         }
         @media print {
+            .no-print { display: none !important; }
+
             @page {
                 size: A4 portrait;
                 margin: 3mm 5mm 4mm 5mm;
@@ -985,6 +987,7 @@
 
             <div class="buttons-row">
                 <button class="btn-success" onclick="applyFilters()">🔍 تطبيق المرشحات</button>
+                <button class="btn-info" onclick="showFilteredTableReport()" title="عرض وطباعة كل ما يظهر في الجدول بعد الفلترة — بدون باركود">📄 عرض / طباعة المفلتر</button>
                 <button class="btn-warning" onclick="clearAllFilters()">🔄 مسح الفلاتر</button>
                 <button class="btn-purple" onclick="showMapReport()">🗺️ تقرير الخرائط</button>
                 <button class="btn-info" onclick="exportCurrentData()">💾 تصدير Excel</button>
@@ -1109,6 +1112,8 @@
                         <option value="active">ساري</option>
                         <option value="warning">ينتهي خلال شهر</option>
                         <option value="expired">منتهي</option>
+                        <option value="debtor">مدين</option>
+                        <option value="creditor">دائن</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -1168,7 +1173,14 @@
             <div class="legend-item" onclick="filterByStatus('expired')" style="cursor:pointer;padding:2px 6px;border-radius:6px;" title="اضغط لعرض المنتهي فقط">
                 <span class="legend-dot dot-red"></span> منتهي
             </div>
+            <div class="legend-item" onclick="filterByStatus('debtor')" style="cursor:pointer;padding:2px 6px;border-radius:6px;" title="اضغط لعرض المدينين فقط">
+                <span class="legend-dot" style="background:#dc2626;"></span> مدين
+            </div>
+            <div class="legend-item" onclick="filterByStatus('creditor')" style="cursor:pointer;padding:2px 6px;border-radius:6px;" title="اضغط لعرض الدائنين فقط">
+                <span class="legend-dot" style="background:#16a34a;"></span> دائن
+            </div>
             <span style="color:#64748b;">← اضغط على اللون للفلترة · اضغط شارة الحالة في الجدول لعرض التفاصيل</span>
+            <button type="button" class="btn-info" onclick="showFilteredTableReport()" style="margin-right:auto;padding:5px 12px;font-size:0.85em;" title="عرض وطباعة كل ما يظهر في الجدول بعد الفلترة">📄 عرض / طباعة التقرير المفلتر</button>
         </div>
         
         <div style="margin:12px;padding:12px;background:#f8fafc;border:2px solid #cbd5e1;border-radius:8px;">
@@ -1354,6 +1366,59 @@
         let pdfDbPromise = null;
         const PDF_DB_NAME = 'baladyPdfStoreV1';
         const PDF_STORE = 'pdfs';
+        const IMG_STORE = 'images';
+        var __pdfMemCache = Object.create(null);
+        function cachePdfRec(contractNumber, rec) {
+            try {
+                var n = String(contractNumber || '').trim();
+                if (!n || !rec || !rec.blob) return;
+                var blob = normalizePdfBlob(rec.blob);
+                if (!blob) return;
+                var entry = {
+                    contractNumber: n,
+                    blob: blob,
+                    fileName: rec.fileName || (n + '.pdf'),
+                    savedAt: rec.savedAt || new Date().toISOString()
+                };
+                __pdfMemCache[n] = entry;
+                var digits = n.replace(/\D/g, '');
+                if (digits && digits !== n) __pdfMemCache[digits] = entry;
+            } catch (e) {}
+        }
+        function getCachedPdfRec(contractNumber) {
+            try {
+                var n = String(contractNumber || '').trim();
+                if (!n) return null;
+                var r = __pdfMemCache[n];
+                if (!r) {
+                    var d = n.replace(/\D/g, '');
+                    if (d) r = __pdfMemCache[d];
+                }
+                if (r && r.blob && r.blob.size > 0) return r;
+            } catch (e) {}
+            return null;
+        }
+        function normalizePdfBlob(blob) {
+            try {
+                if (!blob) return null;
+                if (blob instanceof Blob) {
+                    if (blob.size <= 0) return null;
+                    if (!blob.type || String(blob.type).indexOf('pdf') < 0) {
+                        return new Blob([blob], { type: 'application/pdf' });
+                    }
+                    return blob;
+                }
+                if (typeof ArrayBuffer !== 'undefined' && blob instanceof ArrayBuffer) {
+                    var b = new Blob([blob], { type: 'application/pdf' });
+                    return b.size > 0 ? b : null;
+                }
+                if (blob.buffer) {
+                    var b2 = new Blob([blob.buffer], { type: 'application/pdf' });
+                    return b2.size > 0 ? b2 : null;
+                }
+            } catch (e) {}
+            return null;
+        }
         const priceTable = {
               'لم يحدد': 0,
             '240 لتر': 3000,
@@ -1491,7 +1556,9 @@
                 document.getElementById('passwordModalMsg').textContent = message || 'أدخل كلمة السر للمتابعة';
                 const inp = document.getElementById('passwordModalInput');
                 inp.value = '';
-                document.getElementById('passwordModal').style.display = 'block';
+                var pm = document.getElementById('passwordModal');
+                pm.style.display = 'block';
+                pm.style.zIndex = '10000';
                 setTimeout(function() { inp.focus(); }, 80);
             });
         }
@@ -1691,11 +1758,14 @@
                 });
             }
             pdfDbPromise = new Promise(function(resolve, reject) {
-                var req = indexedDB.open(PDF_DB_NAME, 1);
+                var req = indexedDB.open(PDF_DB_NAME, 2);
                 req.onupgradeneeded = function(e) {
                     var db = e.target.result;
                     if (!db.objectStoreNames.contains(PDF_STORE)) {
                         db.createObjectStore(PDF_STORE, { keyPath: 'contractNumber' });
+                    }
+                    if (!db.objectStoreNames.contains(IMG_STORE)) {
+                        db.createObjectStore(IMG_STORE, { keyPath: 'contractNumber' });
                     }
                 };
                 req.onsuccess = function(e) {
@@ -1721,13 +1791,17 @@
                 const db = await openPdfDb();
                 return new Promise(function(resolve, reject) {
                     const tx = db.transaction(PDF_STORE, 'readwrite');
-                    tx.objectStore(PDF_STORE).put({
+                    var _recSave = {
                         contractNumber: String(contractNumber),
                         blob: blob,
                         fileName: fileName || (contractNumber + '.pdf'),
                         savedAt: new Date().toISOString()
-                    });
-                    tx.oncomplete = function() { resolve(true); };
+                    };
+                    tx.objectStore(PDF_STORE).put(_recSave);
+                    tx.oncomplete = function() {
+                        if (typeof cachePdfRec === 'function') cachePdfRec(contractNumber, _recSave);
+                        resolve(true);
+                    };
                     tx.onerror = function() { pdfDbPromise = null; reject(tx.error); };
                     tx.onabort = function() { pdfDbPromise = null; reject(tx.error || new Error('tx aborted')); };
                 });
@@ -1805,7 +1879,13 @@
 
                 for (let i = 0; i < uniq.length; i++) {
                     const rec = await readKey(uniq[i]);
-                    if (rec && rec.blob && rec.blob instanceof Blob && rec.blob.size > 0) return rec;
+                    if (!rec || !rec.blob) continue;
+                    var nb = (typeof normalizePdfBlob === 'function') ? normalizePdfBlob(rec.blob) : (rec.blob instanceof Blob && rec.blob.size > 0 ? rec.blob : null);
+                    if (nb) {
+                        rec.blob = nb;
+                        if (typeof cachePdfRec === 'function') cachePdfRec(n, rec);
+                        return rec;
+                    }
                 }
                 return null;
             } catch (e) {
@@ -1817,6 +1897,15 @@
 
         async function deletePdfBlob(contractNumber) {
             try {
+                var n = String(contractNumber || '').trim();
+                try {
+                    if (__pdfMemCache) {
+                        delete __pdfMemCache[n];
+                        var d = n.replace(/\D/g, '');
+                        if (d) delete __pdfMemCache[d];
+                        if (/^DG-/i.test(n)) delete __pdfMemCache[n.replace(/^DG-/i, '')];
+                    }
+                } catch (eC) {}
                 const db = await openPdfDb();
                 return new Promise(function(resolve) {
                     const tx = db.transaction(PDF_STORE, 'readwrite');
@@ -1829,6 +1918,481 @@
                 return false;
             }
         }
+
+        async function saveContractImageBlob(contractNumber, blob, fileName) {
+            try {
+                const db = await openPdfDb();
+                return await new Promise(function(resolve, reject) {
+                    const tx = db.transaction(IMG_STORE, 'readwrite');
+                    tx.objectStore(IMG_STORE).put({
+                        contractNumber: String(contractNumber),
+                        blob: blob,
+                        fileName: fileName || (String(contractNumber) + '.jpg'),
+                        mimeType: (blob && blob.type) ? blob.type : 'image/jpeg',
+                        savedAt: new Date().toISOString()
+                    });
+                    tx.oncomplete = function() { resolve(true); };
+                    tx.onerror = function() { pdfDbPromise = null; reject(tx.error); };
+                    tx.onabort = function() { pdfDbPromise = null; reject(tx.error || new Error('tx aborted')); };
+                });
+            } catch (e) {
+                console.warn('saveContractImageBlob failed', e);
+                pdfDbPromise = null;
+                return false;
+            }
+        }
+        async function getContractImageRecord(contractNumber) {
+            try {
+                const n = String(contractNumber || '').trim();
+                if (!n) return null;
+                const db = await openPdfDb();
+                return await new Promise(function(resolve) {
+                    try {
+                        if (!db.objectStoreNames.contains(IMG_STORE)) { resolve(null); return; }
+                        const tx = db.transaction(IMG_STORE, 'readonly');
+                        const req = tx.objectStore(IMG_STORE).get(n);
+                        req.onsuccess = function() { resolve(req.result || null); };
+                        req.onerror = function() { resolve(null); };
+                    } catch (e) { resolve(null); }
+                });
+            } catch (e) {
+                console.warn('getContractImageRecord failed', e);
+                return null;
+            }
+        }
+        async function deleteContractImageBlob(contractNumber) {
+            try {
+                const db = await openPdfDb();
+                return await new Promise(function(resolve) {
+                    if (!db.objectStoreNames.contains(IMG_STORE)) { resolve(false); return; }
+                    const tx = db.transaction(IMG_STORE, 'readwrite');
+                    tx.objectStore(IMG_STORE).delete(String(contractNumber));
+                    tx.oncomplete = function() { resolve(true); };
+                    tx.onerror = function() { pdfDbPromise = null; resolve(false); };
+                });
+            } catch (e) {
+                pdfDbPromise = null;
+                return false;
+            }
+        }
+
+        /** مسح صورة العقد المحفوظة + تفريغ حقل الاختيار والمعاينة — يتطلب كلمة سر وتأكيد */
+        /** مسح المرفق (صورة و/أو PDF) — يتطلب كلمة سر وتأكيد */
+        async function clearContractImage(contractNumber, previewId, inputId) {
+            try {
+                var n = String(contractNumber || '').trim();
+                var hasImg = false;
+                var hasPdf = false;
+                if (n) {
+                    try {
+                        var rec = await getContractImageRecord(n);
+                        hasImg = !!(rec && rec.blob && rec.blob.size > 0);
+                    } catch (e1) { hasImg = false; }
+                    try {
+                        var pdfRec = null;
+                        if (typeof findPdfRecordAnywhere === 'function') pdfRec = await findPdfRecordAnywhere(n);
+                        else if (typeof getPdfRecord === 'function') pdfRec = await getPdfRecord(n);
+                        hasPdf = !!(pdfRec && pdfRec.blob && pdfRec.blob.size > 0);
+                    } catch (e2) { hasPdf = false; }
+                }
+                var input = null;
+                if (inputId) {
+                    input = document.getElementById(inputId);
+                    if (!input) {
+                        var panels = document.querySelectorAll('.float-report-panel, #editContent, .modal-content, .frp-body');
+                        for (var pi = 0; pi < panels.length; pi++) {
+                            try {
+                                var found = panels[pi].querySelector('#' + inputId);
+                                if (found) { input = found; break; }
+                            } catch (eQ) {}
+                        }
+                    }
+                }
+                var hasSelected = !!(input && input.files && input.files[0]);
+                var hasSaved = hasImg || hasPdf;
+
+                if (!hasSaved && !hasSelected) {
+                    showAlert('لا يوجد مرفق (صورة أو PDF) لمسحه', 'info');
+                    return false;
+                }
+
+                // ملف مختار فقط (لم يُحفظ بعد)
+                if (!hasSaved && hasSelected) {
+                    if (!confirm('تأكيد: إلغاء الملف المختار قبل الحفظ؟')) return false;
+                    if (input) input.value = '';
+                    var box0 = findPreviewBox(previewId);
+                    if (box0) box0.innerHTML = '<span style="color:#94a3b8;font-size:0.85em;">لم يُختر ملف بعد</span>';
+                    showAlert('تم إلغاء الملف المختار', 'success');
+                    return true;
+                }
+
+                var kinds = [];
+                if (hasImg) kinds.push('صورة');
+                if (hasPdf) kinds.push('PDF');
+                var kindLabel = kinds.join(' + ');
+
+                if (!confirm('تأكيد مسح المرفق المحفوظ (' + kindLabel + ') للعقد ' + n + '؟\nلن يمكن استرجاعه بعد الحذف.')) {
+                    return false;
+                }
+                var pass = await askPassword('أدخل كلمة سر الحذف لتأكيد مسح المرفق', 'مسح مرفق العقد');
+                if (pass === null) return false;
+                if (pass !== DELETE_PASSWORD) {
+                    showAlert('كلمة السر غير صحيحة — لم يتم المسح', 'error');
+                    return false;
+                }
+                if (!confirm('تأكيد نهائي: حذف المرفق (' + kindLabel + ') للعقد رقم ' + n + ' نهائياً؟')) {
+                    showAlert('تم إلغاء عملية المسح', 'info');
+                    return false;
+                }
+
+                var deletedParts = [];
+                if (hasImg) {
+                    await deleteContractImageBlob(n);
+                    deletedParts.push('صورة');
+                }
+                if (hasPdf) {
+                    await deletePdfBlob(n);
+                    // بعض النسخ قد تخزن بمفاتيح بديلة
+                    try {
+                        if (typeof deletePdfBlob === 'function' && n) {
+                            // محاولة إضافية عبر أي مسار معروف
+                            var db = await openPdfDb();
+                            if (db && db.objectStoreNames.contains(PDF_STORE)) {
+                                await new Promise(function(resolve) {
+                                    var tx = db.transaction(PDF_STORE, 'readwrite');
+                                    var store = tx.objectStore(PDF_STORE);
+                                    store.delete(String(n));
+                                    // حذف بالمفتاح إن وُجد fileName كـ key أحياناً
+                                    tx.oncomplete = function() { resolve(true); };
+                                    tx.onerror = function() { resolve(false); };
+                                });
+                            }
+                        }
+                    } catch (eDel) {}
+                    deletedParts.push('PDF');
+                }
+
+                var c = (allContracts || []).find(function(x) { return String(x.contractNumber) === n; });
+                if (c) {
+                    if (hasImg) { c.hasContractImage = false; c.contractImageName = ''; }
+                    if (hasPdf) { c.hasPdf = false; }
+                    c.updatedAt = Date.now();
+                    if (!c.actions) c.actions = [];
+                    c.actions.push('📅 ' + new Date().toLocaleString('ar-SA') + ': مسح مرفق العقد (' + deletedParts.join('+') + ') بكلمة سر');
+                    var f = (filteredContracts || []).find(function(x) { return String(x.contractNumber) === n; });
+                    if (f) {
+                        if (hasImg) { f.hasContractImage = false; f.contractImageName = ''; }
+                        if (hasPdf) { f.hasPdf = false; }
+                    }
+                    if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+                }
+
+                if (input) input.value = '';
+                var box = findPreviewBox(previewId);
+                if (box) {
+                    box.innerHTML = '<span style="color:#0f766e;font-size:0.85em;font-weight:700;">✓ تم مسح المرفق — يمكنك اختيار ملف جديد</span>';
+                }
+                // إعادة تحميل المعاينة للتأكد
+                if (previewId && typeof loadExistingImagePreview === 'function') {
+                    setTimeout(function() { loadExistingImagePreview(n, previewId); }, 150);
+                }
+                if (typeof renderTable === 'function' && typeof filteredContracts !== 'undefined') {
+                    try { renderTable(filteredContracts); } catch (eR) {}
+                }
+                showAlert('تم مسح المرفق بنجاح (' + deletedParts.join(' + ') + ')', 'success');
+                return true;
+            } catch (e) {
+                console.error(e);
+                showAlert('تعذر مسح المرفق: ' + (e && e.message ? e.message : ''), 'error');
+                return false;
+            }
+        }
+
+        function findPreviewBox(previewId) {
+            if (!previewId) return null;
+            var box = document.getElementById(previewId);
+            if (box) return box;
+            var panels = document.querySelectorAll('.float-report-panel, #editContent, .modal-content, .frp-body');
+            for (var i = 0; i < panels.length; i++) {
+                try {
+                    var found = panels[i].querySelector('#' + previewId);
+                    if (found) return found;
+                } catch (e) {}
+            }
+            return null;
+        }
+
+        /** مسح اختيار الصورة فقط (قبل الحفظ) بدون حذف محفوظ */
+        function clearSelectedImageOnly(inputId, previewId) {
+            try {
+                var input = document.getElementById(inputId);
+                if (input) input.value = '';
+                var box = document.getElementById(previewId);
+                if (box) box.innerHTML = '<span style="color:#94a3b8;font-size:0.85em;">لم تُختر صورة بعد</span>';
+            } catch (e) {}
+        }
+
+        async function fileToImageBlob(file) {
+            if (!file) return null;
+            try {
+                var buf = await file.arrayBuffer();
+                var type = file.type || 'image/jpeg';
+                if (!/^image\//i.test(type)) type = 'image/jpeg';
+                return new Blob([buf], { type: type });
+            } catch (e) {
+                if (file instanceof Blob) return file;
+                return null;
+            }
+        }
+        function previewSelectedContractImage(inputId, previewId) {
+            try {
+                var input = document.getElementById(inputId);
+                var box = document.getElementById(previewId);
+                if (!input || !box) return;
+                var file = input.files && input.files[0];
+                if (!file) {
+                    box.innerHTML = '<span style="color:#94a3b8;font-size:0.85em;">لم يُختر ملف بعد</span>';
+                    return;
+                }
+                var isPdf = /pdf/i.test(file.type || '') || /\.pdf$/i.test(file.name || '');
+                var isImg = /^image\//i.test(file.type || '') || /\.(jpe?g|png|webp|gif)$/i.test(file.name || '');
+                if (isPdf) {
+                    box.innerHTML = '<div style="padding:12px;background:#ecfdf5;border:2px solid #10b981;border-radius:8px;">' +
+                        '<div style="font-size:1.4em;">📄</div>' +
+                        '<div style="font-weight:700;color:#065f46;">تم اختيار ملف PDF</div>' +
+                        '<div style="font-size:0.8em;color:#047857;">' + (file.name || 'file.pdf') + ' — ' + Math.round(file.size / 1024) + ' ك.ب</div>' +
+                        '<div style="font-size:0.75em;color:#64748b;margin-top:4px;">سيُحفظ عند الضغط على حفظ</div></div>';
+                    return;
+                }
+                if (!isImg) {
+                    showAlert('اختر صورة (JPG/PNG) أو ملف PDF', 'error');
+                    input.value = '';
+                    box.innerHTML = '<span style="color:#94a3b8;font-size:0.85em;">لم يُختر ملف بعد</span>';
+                    return;
+                }
+                var url = URL.createObjectURL(file);
+                box.innerHTML = '<img src="' + url + '" alt="معاينة صورة العقد" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #cbd5e1;object-fit:contain;background:#fff;">' +
+                    '<div style="font-size:0.78em;color:#475569;margin-top:4px;">' + (file.name || 'صورة') + ' — ' + Math.round(file.size / 1024) + ' ك.ب</div>';
+            } catch (e) { console.warn(e); }
+        }
+        async function attachContractImageFromInput(contractNumber, inputId) {
+            var input = document.getElementById(inputId);
+            if (!input || !input.files || !input.files[0]) return false;
+            var file = input.files[0];
+            if (!/^image\//i.test(file.type || '')) {
+                showAlert('الملف المختار ليس صورة', 'error');
+                return false;
+            }
+            var blob = await fileToImageBlob(file);
+            if (!blob || blob.size === 0) {
+                showAlert('تعذر قراءة الصورة', 'error');
+                return false;
+            }
+            try {
+                if (blob.size > 2.5 * 1024 * 1024 && typeof createImageBitmap === 'function') {
+                    var bmp = await createImageBitmap(blob);
+                    var maxW = 1600;
+                    var scale = bmp.width > maxW ? (maxW / bmp.width) : 1;
+                    var w = Math.round(bmp.width * scale);
+                    var h = Math.round(bmp.height * scale);
+                    var canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    var ctx = canvas.getContext('2d');
+                    ctx.drawImage(bmp, 0, 0, w, h);
+                    blob = await new Promise(function(resolve) {
+                        canvas.toBlob(function(b) { resolve(b || blob); }, 'image/jpeg', 0.82);
+                    });
+                    try { bmp.close(); } catch (e0) {}
+                }
+            } catch (eComp) { console.warn('image compress skipped', eComp); }
+            var fileName = (file.name || (String(contractNumber) + '.jpg')).replace(/[<>:"/\\|?*]/g, '_');
+            var ok = await saveContractImageBlob(contractNumber, blob, fileName);
+            if (ok) {
+                var c = (allContracts || []).find(function(x) { return String(x.contractNumber) === String(contractNumber); });
+                if (c) {
+                    c.hasContractImage = true;
+                    c.contractImageName = fileName;
+                    c.updatedAt = Date.now();
+                }
+            }
+            return !!ok;
+        }
+        async function openSavedContractImage(contractNumber) {
+            try {
+                var rec = await getContractImageRecord(contractNumber);
+                if (!rec || !rec.blob || !(rec.blob instanceof Blob) || rec.blob.size === 0) {
+                    showAlert('لا توجد صورة محفوظة لهذا العقد', 'info');
+                    return false;
+                }
+                var type = rec.mimeType || rec.blob.type || 'image/jpeg';
+                var blob = rec.blob;
+                if (!blob.type) blob = new Blob([blob], { type: type });
+                var url = URL.createObjectURL(blob);
+                var w = window.open('', '_blank');
+                if (w) {
+                    w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>صورة العقد ' + String(contractNumber) + '</title>' +
+                        '<style>body{margin:0;background:#111;display:flex;flex-direction:column;align-items:center;min-height:100vh;font-family:Tahoma,sans-serif;}' +
+                        'img{max-width:100%;height:auto;margin:auto;}' +
+                        '.bar{position:sticky;top:0;width:100%;background:#0f766e;color:#fff;padding:10px;display:flex;gap:10px;justify-content:center;box-sizing:border-box;}' +
+                        'a{background:#fff;color:#0f766e;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:700;}</style></head><body>' +
+                        '<div class="bar"><a href="' + url + '" download="' + (rec.fileName || (contractNumber + '.jpg')) + '">⬇️ تنزيل الصورة</a></div>' +
+                        '<img src="' + url + '" alt="صورة العقد"></body></html>');
+                    w.document.close();
+                } else {
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = rec.fileName || (String(contractNumber) + '.jpg');
+                    a.click();
+                }
+                setTimeout(function() { try { URL.revokeObjectURL(url); } catch (e) {} }, 10 * 60 * 1000);
+                return true;
+            } catch (e) {
+                console.error(e);
+                showAlert('تعذر فتح صورة العقد', 'error');
+                return false;
+            }
+        }
+        async function downloadSavedContractImage(contractNumber) {
+            try {
+                var rec = await getContractImageRecord(contractNumber);
+                if (!rec || !rec.blob || !(rec.blob instanceof Blob) || rec.blob.size === 0) {
+                    showAlert('لا توجد صورة محفوظة لهذا العقد', 'info');
+                    return false;
+                }
+                var type = rec.mimeType || rec.blob.type || 'image/jpeg';
+                var blob = rec.blob.type ? rec.blob : new Blob([rec.blob], { type: type });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = rec.fileName || (String(contractNumber) + '.jpg');
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(function() { try { URL.revokeObjectURL(url); } catch (e) {} }, 60 * 1000);
+                showAlert('تم تنزيل صورة العقد', 'success');
+                return true;
+            } catch (e) {
+                console.error(e);
+                showAlert('تعذر تنزيل صورة العقد', 'error');
+                return false;
+            }
+        }
+        async function loadExistingImagePreview(contractNumber, previewId) {
+            try {
+                var box = document.getElementById(previewId);
+                if (!box) {
+                    var panels = document.querySelectorAll('.float-report-panel, #editContent, .modal-content, .frp-body');
+                    for (var i = 0; i < panels.length; i++) {
+                        try {
+                            var found = panels[i].querySelector('#' + previewId);
+                            if (found) { box = found; break; }
+                        } catch (eQ) {}
+                    }
+                }
+                if (!box) return;
+                var n = String(contractNumber || '').trim();
+                box.innerHTML = '<span style="color:#94a3b8;font-size:0.85em;">جاري البحث عن ملف محفوظ...</span>';
+
+                // 1) صورة محفوظة
+                var rec = null;
+                try { rec = await getContractImageRecord(n); } catch (eI) { rec = null; }
+                if (rec && rec.blob && rec.blob.size > 0) {
+                    var type = rec.mimeType || rec.blob.type || 'image/jpeg';
+                    var blob = rec.blob.type ? rec.blob : new Blob([rec.blob], { type: type });
+                    var url = URL.createObjectURL(blob);
+                    box.innerHTML = '<img src="' + url + '" alt="صورة العقد" style="max-width:100%;max-height:240px;border-radius:8px;border:2px solid #0f766e;object-fit:contain;background:#fff;">' +
+                        '<div style="font-size:0.82em;color:#0f766e;margin-top:6px;font-weight:800;">✓ صورة محفوظة: ' + (rec.fileName || n) + ' (' + Math.round(blob.size / 1024) + ' ك.ب)</div>';
+                    var c0 = (allContracts || []).find(function(x) { return String(x.contractNumber) === n; });
+                    if (c0) { c0.hasContractImage = true; c0.contractImageName = rec.fileName || ''; }
+                    return;
+                }
+
+                // 2) PDF محفوظ لنفس رقم العقد
+                var pdfRec = null;
+                try {
+                    if (typeof findPdfRecordAnywhere === 'function') pdfRec = await findPdfRecordAnywhere(n);
+                    else if (typeof getPdfRecord === 'function') pdfRec = await getPdfRecord(n);
+                } catch (eP) { pdfRec = null; }
+                if (pdfRec && pdfRec.blob && pdfRec.blob.size > 0) {
+                    var pdfName = pdfRec.fileName || (n + '.pdf');
+                    var pdfSize = Math.round(pdfRec.blob.size / 1024);
+                    box.innerHTML = '';
+                    var wrap = document.createElement('div');
+                    wrap.style.cssText = 'padding:14px;background:#ecfdf5;border:2px solid #10b981;border-radius:10px;';
+                    var t1 = document.createElement('div'); t1.style.fontSize = '1.6em'; t1.textContent = '📄';
+                    var t2 = document.createElement('div'); t2.style.cssText = 'font-weight:800;color:#065f46;margin-top:4px;'; t2.textContent = 'يوجد ملف PDF محفوظ لهذا العقد';
+                    var t3 = document.createElement('div'); t3.style.cssText = 'font-size:0.82em;color:#047857;margin-top:4px;'; t3.textContent = pdfName + ' — ' + pdfSize + ' ك.ب';
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn-success';
+                    btn.style.cssText = 'margin-top:8px;padding:6px 14px;';
+                    btn.textContent = 'فتح / تنزيل PDF';
+                    btn.addEventListener('click', function() {
+                        if (typeof openSavedPdf === 'function') openSavedPdf(n);
+                    });
+                    wrap.appendChild(t1); wrap.appendChild(t2); wrap.appendChild(t3); wrap.appendChild(btn);
+                    box.appendChild(wrap);
+                    var c1 = (allContracts || []).find(function(x) { return String(x.contractNumber) === n; });
+                    if (c1) c1.hasPdf = true;
+                    return;
+                }
+
+                box.innerHTML = '<span style="color:#94a3b8;font-size:0.85em;">لا توجد صورة أو PDF محفوظ — اختر ملفاً لإرفاقه</span>';
+            } catch (e) {
+                console.warn('loadExistingImagePreview', e);
+                var box2 = document.getElementById(previewId);
+                if (box2) box2.innerHTML = '<span style="color:#dc2626;font-size:0.85em;">تعذر قراءة الملفات المحفوظة</span>';
+            }
+        }
+
+        /** عرض المرفق: صورة إن وُجدت وإلا PDF */
+        async function openContractAttachment(contractNumber) {
+            var n = resolveContractNumber(contractNumber);
+            try {
+                var img = await getContractImageRecord(n);
+                if (img && img.blob && img.blob.size > 0) {
+                    return await openSavedContractImage(n);
+                }
+            } catch (e1) {}
+            try {
+                var pdfRec = null;
+                if (typeof findPdfRecordAnywhere === 'function') pdfRec = await findPdfRecordAnywhere(n);
+                else if (typeof getPdfRecord === 'function') pdfRec = await getPdfRecord(n);
+                if (pdfRec && pdfRec.blob && pdfRec.blob.size > 0 && typeof openSavedPdf === 'function') {
+                    return await openSavedPdf(n);
+                }
+            } catch (e2) {}
+            showAlert('لا توجد صورة أو PDF محفوظ لهذا العقد', 'info');
+            return false;
+        }
+
+        /** حفظ ملف من الحقل: صورة أو PDF */
+        async function attachContractFileFromInput(contractNumber, inputId) {
+            var input = document.getElementById(inputId);
+            if (!input || !input.files || !input.files[0]) return { ok: false, kind: null };
+            var file = input.files[0];
+            var isPdf = /pdf/i.test(file.type || '') || /\.pdf$/i.test(file.name || '');
+            var isImg = /^image\//i.test(file.type || '') || /\.(jpe?g|png|webp|gif)$/i.test(file.name || '');
+            if (isPdf) {
+                if (typeof attachAndSavePdf === 'function') {
+                    var rec = await attachAndSavePdf(contractNumber, file);
+                    if (rec && rec.blob) {
+                        var c = (allContracts || []).find(function(x) { return String(x.contractNumber) === String(contractNumber); });
+                        if (c) { c.hasPdf = true; c.updatedAt = Date.now(); }
+                        return { ok: true, kind: 'pdf' };
+                    }
+                }
+                return { ok: false, kind: 'pdf' };
+            }
+            if (isImg) {
+                var ok = await attachContractImageFromInput(contractNumber, inputId);
+                return { ok: !!ok, kind: 'image' };
+            }
+            showAlert('يُقبل فقط صورة أو ملف PDF', 'error');
+            return { ok: false, kind: null };
+        }
+
+
 
         /** تحويل الملف المختار إلى Blob ثابت يُحفظ في IndexedDB بشكل موثوق على الجوال */
         async function fileToStoredBlob(file) {
@@ -1894,8 +2458,17 @@
         async function findPdfRecordAnywhere(contractNumber) {
             const n = String(contractNumber || '').trim();
             if (!n) return null;
-            let rec = await getPdfRecord(n);
-            if (rec && rec.blob && rec.blob.size > 0) return rec;
+            let rec = getCachedPdfRec(n);
+            if (rec) return rec;
+            rec = await getPdfRecord(n);
+            if (rec && rec.blob) {
+                var nbx = normalizePdfBlob(rec.blob);
+                if (nbx) {
+                    rec = { contractNumber: rec.contractNumber || n, blob: nbx, fileName: rec.fileName || (n + '.pdf'), savedAt: rec.savedAt };
+                    cachePdfRec(n, rec);
+                    return rec;
+                }
+            }
             try {
                 const db = await openPdfDb();
                 const all = await new Promise(function (resolve) {
@@ -1907,7 +2480,10 @@
                 const c = (allContracts || []).find(function (x) { return String(x.contractNumber) === n; });
                 const digits = n.replace(/\D/g, '');
                 rec = all.find(function (r) {
-                    if (!r || !r.blob || !(r.blob instanceof Blob) || r.blob.size === 0) return false;
+                    if (!r || !r.blob) return false;
+                    var nb = normalizePdfBlob(r.blob);
+                    if (!nb) return false;
+                    r.blob = nb;
                     const key = String(r.contractNumber || '');
                     const fn = String(r.fileName || '');
                     if (key === n) return true;
@@ -1926,7 +2502,16 @@
                 console.warn('findPdfRecordAnywhere failed', eScan);
                 pdfDbPromise = null;
             }
-            return rec;
+            if (rec) {
+                var nb3 = normalizePdfBlob(rec.blob);
+                if (nb3) {
+                    rec = { contractNumber: rec.contractNumber || n, blob: nb3, fileName: rec.fileName || (n + '.pdf'), savedAt: rec.savedAt };
+                    cachePdfRec(n, rec);
+                    return rec;
+                }
+            }
+            // محاولة أخيرة من الذاكرة
+            return getCachedPdfRec(n);
         }
 
         function displayPdfBlob(blob, fileName, previewWin) {
@@ -1968,11 +2553,16 @@
             }
 
             if (!opened) {
+                try {
+                    var w2 = window.open(url, '_blank');
+                    if (w2) opened = true;
+                } catch (eW) {}
+            }
+            if (!opened) {
                 const a = document.createElement('a');
                 a.href = url;
                 a.target = '_blank';
                 a.rel = 'noopener';
-                if (!isMobile) a.download = safeName;
                 a.style.display = 'none';
                 document.body.appendChild(a);
                 a.click();
@@ -2036,46 +2626,99 @@
             return { contractNumber: n, blob: (verify && verify.blob) ? verify.blob : blob, fileName: fileName, saved: true };
         }
 
+        /** توحيد رقم العقد من الجدول/الفلترة (أرقام عربية، مسافات، DG-) */
+        function resolveContractNumber(raw) {
+            try {
+                var n = String(raw || '').trim();
+                if (!n) return '';
+                // أرقام عربية → إنجليزية
+                n = n.replace(/[٠-٩]/g, function(d) {
+                    return String('٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+                }).replace(/[۰-۹]/g, function(d) {
+                    return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+                });
+                n = n.replace(/\s+/g, '').replace(/[\u200e\u200f\u202a-\u202e]/g, '');
+                // إن وُجد العقد في القوائم استخدم الرقم الرسمي
+                var lists = [];
+                try { if (typeof filteredContracts !== 'undefined' && filteredContracts) lists.push(filteredContracts); } catch (e1) {}
+                try { if (typeof allContracts !== 'undefined' && allContracts) lists.push(allContracts); } catch (e2) {}
+                var digits = n.replace(/\D/g, '');
+                for (var li = 0; li < lists.length; li++) {
+                    var hit = lists[li].find(function(x) {
+                        var cn = String(x.contractNumber || '').trim();
+                        if (cn === n) return true;
+                        if (digits && cn.replace(/\D/g, '') === digits) return true;
+                        if (x.dagalRawNumber && String(x.dagalRawNumber) === digits) return true;
+                        return false;
+                    });
+                    if (hit && hit.contractNumber) return String(hit.contractNumber).trim();
+                }
+                return n;
+            } catch (e) {
+                return String(raw || '').trim();
+            }
+        }
+
         async function openSavedPdf(contractNumber) {
             try {
-                const n = String(contractNumber || '').trim();
+                var raw = contractNumber;
+                if (raw && typeof raw === 'object' && raw.currentTarget) {
+                    raw = raw.currentTarget.getAttribute('data-num') || '';
+                }
+                var n = (typeof resolveContractNumber === 'function')
+                    ? resolveContractNumber(raw)
+                    : String(raw || '').trim();
                 if (!n) { showAlert('رقم العقد غير صالح', 'error'); return; }
 
                 var isMobile = false;
-                try {
-                    isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
-                } catch (eM) {}
+                try { isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || ''); } catch (eM) {}
 
-                // 1) بحث في المحفوظات أولاً
-                let rec = await findPdfRecordAnywhere(n);
+                var rec = null;
+                try { rec = getCachedPdfRec(n); } catch (e0) {}
+                if (!rec) {
+                    try { rec = await findPdfRecordAnywhere(n); } catch (e1) { console.warn(e1); }
+                }
+                if ((!rec || !rec.blob) && typeof pdfDbPromise !== 'undefined') {
+                    try {
+                        pdfDbPromise = null;
+                        await openPdfDb();
+                        rec = await findPdfRecordAnywhere(n);
+                    } catch (e2) {}
+                }
 
-                // 2) إن لم يوجد — اختيار ملف من الجهاز ثم حفظه
-                if (!rec || !rec.blob || !(rec.blob instanceof Blob) || rec.blob.size === 0) {
-                    showAlert('لا يوجد PDF محفوظ لهذا العقد — اختر الملف من الملفات على جهازك', 'info');
-                    const file = await pickPdfFromDevice(n);
-                    if (!file) {
-                        showAlert('لم يتم اختيار ملف', 'info');
-                        return;
+                if (rec && rec.blob) {
+                    var nb = normalizePdfBlob(rec.blob);
+                    if (nb) {
+                        rec = { contractNumber: n, blob: nb, fileName: rec.fileName || (n + '.pdf') };
+                        cachePdfRec(n, rec);
+                    } else {
+                        rec = null;
                     }
+                }
+
+                if (!rec || !rec.blob) {
+                    try {
+                        var imgRec = await getContractImageRecord(n);
+                        if (imgRec && imgRec.blob && imgRec.blob.size > 0) {
+                            await openSavedContractImage(n);
+                            return;
+                        }
+                    } catch (eI) {}
+                    showAlert('لا يوجد PDF محفوظ — اختر الملف من جهازك ليُحفظ مع العقد', 'info');
+                    var file = await pickPdfFromDevice(n);
+                    if (!file) { showAlert('لم يتم اختيار ملف', 'info'); return; }
                     rec = await attachAndSavePdf(n, file);
                     if (!rec || !rec.blob) return;
+                    cachePdfRec(n, rec);
                 }
 
-                // 3) فتح الملف
-                // على الجوال: لا نفتح نافذة فارغة مسبقاً (تسبب ارتباكاً) — نفتح مباشرة بعد الحفظ
+                var blob = normalizePdfBlob(rec.blob) || rec.blob;
                 var previewWin = null;
                 if (!isMobile) {
-                    try {
-                        previewWin = window.open('', '_blank');
-                    } catch (eOpen) {
-                        previewWin = null;
-                    }
+                    try { previewWin = window.open('', '_blank'); } catch (eOpen) { previewWin = null; }
                 }
-
-                const ok = displayPdfBlob(rec.blob, rec.fileName || (n + '.pdf'), previewWin);
-                if (!ok) {
-                    showAlert('تعذر عرض PDF — جرّب زر «تنزيل»', 'error');
-                }
+                var ok = displayPdfBlob(blob, rec.fileName || (n + '.pdf'), previewWin);
+                if (!ok) showAlert('تعذر عرض PDF — جرّب زر «تنزيل»', 'error');
             } catch (err) {
                 console.error('openSavedPdf error', err);
                 showAlert('تعذر فتح ملف PDF: ' + (err && err.message ? err.message : err), 'error');
@@ -2084,10 +2727,15 @@
 
         async function downloadSavedPdf(contractNumber) {
             try {
-                const n = String(contractNumber || '').trim();
+                const n = resolveContractNumber(contractNumber);
                 let rec = await findPdfRecordAnywhere(n);
                 if (!rec || !rec.blob || !(rec.blob instanceof Blob) || rec.blob.size === 0) {
-                    showAlert('لا يوجد PDF محفوظ — اختر الملف من الملفات على جهازك', 'info');
+                    var imgRec = await getContractImageRecord(n);
+                    if (imgRec && imgRec.blob && imgRec.blob.size > 0) {
+                        await downloadSavedContractImage(n);
+                        return;
+                    }
+                    showAlert('لا يوجد PDF أو صورة محفوظة — اختر ملف PDF من جهازك', 'info');
                     const file = await pickPdfFromDevice(n);
                     if (!file) {
                         showAlert('لم يتم اختيار ملف', 'info');
@@ -6224,9 +6872,10 @@
                         <td>
                             <div class="action-buttons">
                                 <button type="button" class="btn-small btn-report row-tab-btn" onclick="generateReport('${c.contractNumber}')" title="تقرير">تقرير</button>
-                                <button type="button" class="btn-small btn-pdf row-tab-btn" onclick="openSavedPdf('${c.contractNumber}')" title="PDF">PDF</button>
+                                <button type="button" class="btn-small btn-pdf row-tab-btn" onclick="openSavedPdf('${c.contractNumber}')" title="عرض PDF أو صورة العقد">PDF/صورة</button>
+                                ${c.hasContractImage ? `<button type="button" class="btn-small row-tab-btn" style="background:#be123c;color:white;" onclick="clearContractImage('${c.contractNumber}')" title="مسح صورة العقد">مسح صورة</button>` : ''}
                                 <button type="button" class="btn-small row-tab-btn" style="background:#059669;color:white;" onclick="refreshContractFromSavedPdf('${c.contractNumber}')" title="تحديث">تحديث</button>
-                                <button type="button" class="btn-small row-tab-btn" style="background:#6366f1;color:white;" onclick="downloadSavedPdf('${c.contractNumber}')" title="تنزيل">تنزيل</button>
+                                <button type="button" class="btn-small row-tab-btn" style="background:#6366f1;color:white;" onclick="downloadSavedPdf('${c.contractNumber}')" title="تنزيل PDF أو صورة العقد">تنزيل</button>
                                 <button type="button" class="btn-small row-tab-btn" style="background:#25D366;color:white;" onclick="sendWhatsApp('${c.contractNumber}')" title="واتساب">واتساب</button>
                                 <button type="button" class="btn-small row-tab-btn" style="background:#d97706;color:white;" onclick="openEditContract('${c.contractNumber}')" title="تعديل">تعديل</button>
                                 <button type="button" class="btn-small row-tab-btn" style="background:#0d9488;color:white;" onclick="openCompleteMissingForm('${c.contractNumber}')" title="استكمال الحقول الفارغة فقط">استكمال</button>
@@ -6238,6 +6887,7 @@
                     </tr>
                 `;
             }).join('');
+
 
             // أزرار الصفحات
             let pagesHtml = '';
@@ -6279,13 +6929,12 @@
 
         // ===== Tab: حقول الإدخال ثم أزرار الإجراءات في كل صف حتى آخر صف =====
         function getTableFocusables() {
-            // بداية الصف (رقم العقد) → حقول الإدخال → أزرار الإجراءات → الصف التالي...
+            // السلوك الأصلي: بداية الصف → حقول الإدخال → أزرار الإجراءات → الصف التالي...
             var nodes = document.querySelectorAll(
                 '#tableBody .row-tab-start, #tableBody input.row-edit-input:not([disabled]), #tableBody button.row-tab-btn:not([disabled])'
             );
             return Array.prototype.slice.call(nodes);
         }
-        // توافق مع الاستدعاءات القديمة
         function getTableEditInputs() { return getTableFocusables(); }
 
         function markActiveRow(el) {
@@ -6351,6 +7000,20 @@
         function handleTableNavKey(e) {
             if (e._tableNavHandled) return false;
             var t = e.target;
+            // إن كان التركيز داخل صف الجدول وليس على عنصر focusable مباشرة — انتقل لأقرب عنصر
+            if (!isTableFocusable(t)) {
+                try {
+                    var tr0 = t && t.closest ? t.closest('#tableBody tr[data-num]') : null;
+                    if (!tr0) return false;
+                    var key0 = e.key || e.keyCode;
+                    if (key0 !== 'Tab' && key0 !== 9 && key0 !== 'ArrowDown' && key0 !== 'Down' && key0 !== 40 && key0 !== 'ArrowUp' && key0 !== 'Up' && key0 !== 38) {
+                        return false;
+                    }
+                    var near = tr0.querySelector('.row-tab-start, input.row-edit-input, button.row-tab-btn');
+                    if (near) t = near;
+                    else return false;
+                } catch (e0) { return false; }
+            }
             if (!isTableFocusable(t)) return false;
 
             var key = e.key || e.keyCode;
@@ -6362,9 +7025,24 @@
             var list = getTableFocusables();
             if (!list.length) return false;
             var idx = list.indexOf(t);
+            if (idx < 0) {
+                // مطابقة مرنة إن تغيّر مرجع العنصر بعد إعادة الرسم
+                for (var ii = 0; ii < list.length; ii++) {
+                    if (list[ii] === t || (list[ii].isSameNode && list[ii].isSameNode(t))) { idx = ii; break; }
+                }
+            }
+            if (idx < 0 && t.closest) {
+                var trX = t.closest('#tableBody tr[data-num]');
+                if (trX) {
+                    for (var jj = 0; jj < list.length; jj++) {
+                        if (trX.contains(list[jj])) { idx = jj; break; }
+                    }
+                }
+            }
             if (idx < 0) return false;
 
             if (isTab) {
+                // السلوك الأصلي: حقل → حقل (رقم العقد، الإدخالات، الأزرار) ثم الصف التالي تلقائياً
                 e.preventDefault();
                 e.stopPropagation();
                 e._tableNavHandled = true;
@@ -6373,8 +7051,30 @@
                 if (nextIdx >= 0 && nextIdx < list.length) {
                     focusTableEditInput(list[nextIdx], goingDown);
                 } else if (goingDown) {
+                    // آخر عنصر في الصفحة → صفحة تالية إن وُجدت
+                    try {
+                        var totalPages = Math.max(1, Math.ceil((filteredContracts || []).length / (pageSize || 20)));
+                        if (typeof currentPage === 'number' && currentPage < totalPages && typeof goPage === 'function') {
+                            goPage(1);
+                            setTimeout(function() {
+                                var list2 = getTableFocusables();
+                                if (list2.length) focusTableEditInput(list2[0], true);
+                            }, 80);
+                            return true;
+                        }
+                    } catch (eP) {}
                     focusTableEditInput(list[list.length - 1], true);
                 } else {
+                    try {
+                        if (typeof currentPage === 'number' && currentPage > 1 && typeof goPage === 'function') {
+                            goPage(-1);
+                            setTimeout(function() {
+                                var list2 = getTableFocusables();
+                                if (list2.length) focusTableEditInput(list2[list2.length - 1], false);
+                            }, 80);
+                            return true;
+                        }
+                    } catch (eP2) {}
                     focusTableEditInput(list[0], false);
                 }
                 return true;
@@ -6570,12 +7270,21 @@
         })();
 
         function bindRowEditInputNav() {
-            var starts = document.querySelectorAll('#tableBody .row-tab-start');
-            for (var s = 0; s < starts.length; s++) starts[s].setAttribute('tabindex', '0');
-            var inputs = document.querySelectorAll('#tableBody input.row-edit-input');
-            for (var i = 0; i < inputs.length; i++) inputs[i].setAttribute('tabindex', '0');
-            var btns = document.querySelectorAll('#tableBody button.row-tab-btn');
-            for (var j = 0; j < btns.length; j++) btns[j].setAttribute('tabindex', '0');
+            try {
+                var starts = document.querySelectorAll('#tableBody .row-tab-start');
+                for (var s = 0; s < starts.length; s++) {
+                    starts[s].setAttribute('tabindex', '0');
+                    starts[s].setAttribute('data-row-start', '1');
+                }
+                var inputs = document.querySelectorAll('#tableBody input.row-edit-input');
+                for (var i = 0; i < inputs.length; i++) {
+                    if (!inputs[i].disabled) inputs[i].setAttribute('tabindex', '0');
+                }
+                var btns = document.querySelectorAll('#tableBody button.row-tab-btn');
+                for (var j = 0; j < btns.length; j++) {
+                    if (!btns[j].disabled) btns[j].setAttribute('tabindex', '0');
+                }
+            } catch (eBind) { console.warn('bindRowEditInputNav', eBind); }
         }
 
         /** بعد إعادة رسم الجدول: ركّز على أول حقل إدخال في الصف التالي */
@@ -6848,7 +7557,13 @@
                     if (areaFrom !== null && areaVal < areaFrom) return false;
                     if (areaTo !== null && areaVal > areaTo) return false;
                 }
-                if (statusF && st !== statusF) return false;
+                if (statusF) {
+                    if (statusF === 'debtor') {
+                        if (!(typeof calcDebt === 'function' && calcDebt(c).amount > 0)) return false;
+                    } else if (statusF === 'creditor') {
+                        if (!(typeof calcCreditor === 'function' && calcCreditor(c).amount > 0)) return false;
+                    } else if (st !== statusF) return false;
+                }
                 if (activity && !(c.isicClassification || '').toLowerCase().includes(activity)) return false;
                 if (loc && !(c.location || '').toLowerCase().includes(loc) && !(c.municipality || '').toLowerCase().includes(loc) && !(c.district || '').toLowerCase().includes(loc)) return false;
                 if (oldFrom && (!c.oldStartDate || c.oldStartDate < oldFrom)) return false;
@@ -6925,7 +7640,7 @@
             if (status) {
                 document.getElementById('filterStatus').value = status;
                 applyFilters();
-                const labels = { active: 'ساري', warning: 'ينتهي قريباً', expired: 'منتهي' };
+                const labels = { active: 'ساري', warning: 'ينتهي قريباً', expired: 'منتهي', debtor: 'مدين', creditor: 'دائن' };
                 showAlert('تم تطبيق فلتر: ' + (labels[status] || status), 'info');
             }
         }
@@ -7191,6 +7906,15 @@ function saveEmail(contractNumber, email) {
                     </datalist>
                     <datalist id="manualIsicList">${(typeof getAllIsicActivities==='function'?getAllIsicActivities():[]).map(function(a){return '<option value="'+String(a).replace(/"/g,'&quot;')+'">';}).join('')}</datalist>
                     <div class="buttons-row" style="margin-top:16px;justify-content:center;">
+                        <div style="grid-column:1/-1;margin-top:6px;padding:12px;background:#faf5ff;border:2px dashed #a78bfa;border-radius:10px;">
+                            <div style="font-weight:800;color:#5b21b6;margin-bottom:8px;">📷 صورة العقد (اختياري)</div>
+                            <p style="font-size:0.82em;color:#64748b;margin:0 0 8px;">ارفع صورة العقد مع الإدخال اليدوي — تُحفظ ويمكن تنزيلها من زر PDF/صورة في الجدول.</p>
+                            <input type="file" id="manual_contractImage" accept="image/*,application/pdf,.pdf" capture="environment" style="width:100%;margin-bottom:8px;" onchange="previewSelectedContractImage('manual_contractImage','manual_imagePreview')">
+                            <div id="manual_imagePreview" style="text-align:center;min-height:36px;"><span style="color:#94a3b8;font-size:0.85em;">لم تُختر صورة بعد</span></div>
+                            <div style="text-align:center;margin-top:8px;">
+                                <button type="button" class="btn-danger" style="padding:6px 12px;" onclick="(function(){ if(confirm('تأكيد: إلغاء الصورة المختارة؟')) clearSelectedImageOnly('manual_contractImage','manual_imagePreview'); })()">🗑️ مسح الصورة</button>
+                            </div>
+                        </div>
                         <button class="btn-success" type="button" onclick="saveManualEntry()">💾 حفظ وإضافة للجدول</button>
                         <button class="btn-danger" type="button" onclick="closeEditModal()">إلغاء</button>
                     </div>
@@ -7205,7 +7929,7 @@ function saveEmail(contractNumber, email) {
                 if (el) el.focus();
             }, 80);
         }
-        function saveManualEntry() {
+        async function saveManualEntry() {
             const g = function(id) { return ((document.getElementById(id) || {}).value || '').trim(); };
             const num = g('manual_contractNumber');
             const name = g('manual_customerName');
@@ -7288,6 +8012,15 @@ function saveEmail(contractNumber, email) {
             };
             allContracts.push(contract);
             allContracts = typeof sortContractsByDate === 'function' ? sortContractsByDate(allContracts) : allContracts;
+            var imageSaved = false;
+            try {
+                var _att = await attachContractFileFromInput(num, 'manual_contractImage'); imageSaved = !!(_att && _att.ok);
+                if (imageSaved) {
+                    contract.hasContractImage = true;
+                    if (!contract.actions) contract.actions = [];
+                    contract.actions.push('📅 ' + new Date().toLocaleString('ar-SA') + ': إرفاق صورة العقد');
+                }
+            } catch (eImg) { console.warn(eImg); }
             saveToLocalStorage();
             if (typeof applyFilters === 'function') applyFilters(true);
             else if (typeof renderTable === 'function') {
@@ -7295,7 +8028,7 @@ function saveEmail(contractNumber, email) {
                 renderTable(filteredContracts);
             }
             closeEditModal();
-            showAlert('تمت إضافة العقد ' + num + ' إلى الجدول', 'success');
+            showAlert('تمت إضافة العقد ' + num + ' إلى الجدول' + (imageSaved ? ' مع صورة العقد ✓' : ''), 'success');
             // تمييز الصف إن وُجد
             setTimeout(function() {
                 const row = document.querySelector('tr[data-num="' + num + '"]');
@@ -7384,6 +8117,16 @@ function saveEmail(contractNumber, email) {
                         ✅ الحقول ذات الإطار الأخضر قابلة للتعبئة فقط.<br>
                         🔒 بعد الحفظ لن يُسمح بتغيير ما تم إدخاله إلا من زر <strong>«تعديل»</strong> (تقرير التعديل).
                     </div>
+                    <div style="margin-top:14px;padding:12px;background:#faf5ff;border:2px dashed #a78bfa;border-radius:10px;">
+                        <div style="font-weight:800;color:#5b21b6;margin-bottom:8px;">📷 صورة / مرفق العقد</div>
+                        <p style="font-size:0.82em;color:#64748b;margin:0 0 8px;">يظهر هنا تلقائياً ملف PDF أو الصورة المحفوظة للعقد (إن وُجد). يمكنك أيضاً إضافة صورة أو PDF جديد. المسح يتطلب كلمة سر وتأكيد.</p>
+                        <input type="file" id="cm_contractImage" accept="image/*,application/pdf,.pdf" style="width:100%;margin-bottom:8px;" onchange="previewSelectedContractImage('cm_contractImage','cm_imagePreview')">
+                        <div id="cm_imagePreview" style="text-align:center;min-height:40px;"><span style="color:#94a3b8;font-size:0.85em;">جاري البحث عن ملف محفوظ...</span></div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px;">
+                            <button type="button" class="btn-info" style="padding:6px 12px;" onclick="openContractAttachment('${c.contractNumber}')">👁️ عرض المرفق</button>
+                            <button type="button" class="btn-danger" style="padding:6px 12px;" onclick="clearContractImage('${c.contractNumber}','cm_imagePreview','cm_contractImage')">🗑️ مسح المرفق</button>
+                        </div>
+                    </div>
                     <div class="buttons-row" style="margin-top:16px;justify-content:center;">
                         <button class="btn-success" type="button" onclick="saveCompleteMissing('${c.contractNumber}')">💾 حفظ الاستكمال</button>
                         <button class="btn-danger" type="button" onclick="closeEditModal()">إلغاء</button>
@@ -7394,8 +8137,22 @@ function saveEmail(contractNumber, email) {
             if (!box || !modal) { showAlert('تعذر فتح النموذج', 'error'); return; }
             box.innerHTML = html;
             modal.style.display = 'block';
+            // تحميل معاينة المرفق (صورة أو PDF) بنفس أسلوب تقرير التعديل — مع إعادة محاولة
+            var _cmNum = String(c.contractNumber || '');
+            function _loadCmPreview(tryN) {
+                loadExistingImagePreview(_cmNum, 'cm_imagePreview');
+                if (tryN < 3) {
+                    setTimeout(function() {
+                        var el = document.getElementById('cm_imagePreview');
+                        if (el && /جاري|البحث|التحقق/.test(el.textContent || '')) {
+                            _loadCmPreview(tryN + 1);
+                        }
+                    }, 200 * (tryN + 1));
+                }
+            }
+            setTimeout(function() { _loadCmPreview(0); }, 120);
         }
-        function saveCompleteMissing(num) {
+        async function saveCompleteMissing(num) {
             const c = allContracts.find(x => x.contractNumber === num);
             if (!c) return;
             const g = function(id) { return ((document.getElementById(id) || {}).value || '').trim(); };
@@ -7509,12 +8266,25 @@ function saveEmail(contractNumber, email) {
                 console.error(e);
                 return;
             }
-            if (!changes.length) {
-                showAlert('لم يتم إدخال أي حقل فارغ جديد', 'info');
+            const imageInput = document.getElementById('cm_contractImage');
+            const hasNewImage = imageInput && imageInput.files && imageInput.files[0];
+            if (!changes.length && !hasNewImage) {
+                showAlert('لم يتم إدخال أي حقل فارغ جديد ولا صورة', 'info');
                 return;
             }
-            if (!c.actions) c.actions = [];
-            c.actions.push('📅 ' + nowStr + ': استكمال ناقص — ' + changes.join(' | '));
+            if (changes.length) {
+                if (!c.actions) c.actions = [];
+                c.actions.push('📅 ' + nowStr + ': استكمال ناقص — ' + changes.join(' | '));
+            }
+            var imageSaved = false;
+            try {
+                var _att = await attachContractFileFromInput(c.contractNumber, 'cm_contractImage'); imageSaved = !!(_att && _att.ok);
+                if (imageSaved) {
+                    if (!c.actions) c.actions = [];
+                    c.actions.push('📅 ' + nowStr + ': إرفاق صورة العقد');
+                    changes.push('صورة العقد');
+                }
+            } catch (eImg) { console.warn(eImg); }
             c.updatedAt = Date.now();
             if (!window.__updateLock) window.__updateLock = {};
             window.__updateLock[String(c.contractNumber)] = true;
@@ -7527,7 +8297,10 @@ function saveEmail(contractNumber, email) {
                 if (typeof syncAllContractsToCloud === 'function') syncAllContractsToCloud();
             }, 2000);
             closeEditModal();
-            showAlert('تم استكمال ' + changes.length + ' حقل/حقول — التعديل لاحقاً من زر «تعديل» فقط\n' + changes.join('\n'), 'success');
+            var msg = changes.length
+                ? ('تم استكمال: ' + changes.join(' | ') + (imageSaved ? ' — ✓ تم حفظ صورة العقد' : ''))
+                : (imageSaved ? '✓ تم حفظ صورة العقد — متاحة من زر PDF/صورة' : 'لا تغييرات');
+            showAlert(msg, 'success');
         }
 
         async function openEditContract(num) {
@@ -7648,6 +8421,16 @@ function saveEmail(contractNumber, email) {
                         <option value="قطاع الشمال"><option value="قطاع الجنوب"><option value="قطاع الشرق"><option value="قطاع الغرب">
                         ${getExtraMunicipalities().map(function(m){return '<option value="'+m+'">';}).join('')}
                     </datalist>
+                    <div style="margin-top:14px;padding:12px;background:#faf5ff;border:2px dashed #a78bfa;border-radius:10px;">
+                        <div style="font-weight:800;color:#5b21b6;margin-bottom:8px;">📷 صورة / مرفق العقد</div>
+                        <p style="font-size:0.82em;color:#64748b;margin:0 0 8px;">أضف أو استبدل صورة العقد — تُحفظ مع التعديلات، ويمكن عرضها/تنزيلها من زر <strong>PDF/صورة</strong>. المسح يتطلب كلمة سر وتأكيد.</p>
+                        <input type="file" id="edit_contractImage" accept="image/*,application/pdf,.pdf" capture="environment" style="width:100%;margin-bottom:8px;" onchange="previewSelectedContractImage('edit_contractImage','edit_imagePreview')">
+                        <div id="edit_imagePreview" style="text-align:center;min-height:40px;"><span style="color:#94a3b8;font-size:0.85em;">جاري التحقق من صورة محفوظة...</span></div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px;">
+                            <button type="button" class="btn-info" style="padding:6px 12px;" onclick="openContractAttachment('${c.contractNumber}')">👁️ عرض المرفق</button>
+                            <button type="button" class="btn-danger" style="padding:6px 12px;" onclick="clearContractImage('${c.contractNumber}','edit_imagePreview','edit_contractImage')">🗑️ مسح الصورة</button>
+                        </div>
+                    </div>
                     <div class="buttons-row" style="margin-top:14px;">
                         <button class="btn-success" onclick="saveEditContract('${c.contractNumber}')">💾 حفظ التعديلات</button>
                         <button class="btn-info" onclick="generateReport('${c.contractNumber}')">📄 عرض التقرير والباركود</button>
@@ -7657,6 +8440,7 @@ function saveEmail(contractNumber, email) {
             // نافذة عائمة قابلة للسحب (مثل التقرير) حتى لا تتعارض مع التقارير المفتوحة
             openFloatReport('تعديل ' + (c.contractNumber || ''), html, function(root) {
                 root.dataset.editNum = String(c.contractNumber || '');
+                setTimeout(function() { loadExistingImagePreview(String(c.contractNumber || ''), 'edit_imagePreview'); }, 250);
             });
         }
 
@@ -7803,7 +8587,7 @@ function saveEmail(contractNumber, email) {
             showAlert('تم تحديث عدد الحاويات الجديد إلى ' + q, 'success');
         }
 
-        function saveEditContract(num) {
+        async function saveEditContract(num) {
             const c = allContracts.find(x => x.contractNumber === num);
             if (!c) return;
             const g = id => (document.getElementById(id) || {}).value || '';
@@ -7987,7 +8771,19 @@ function saveEmail(contractNumber, email) {
                 renderTable(filteredContracts);
             }
             
-            showAlert('تم حفظ التعديلات وتسجيل الإجراءات', 'success');
+            // حفظ صورة العقد إن وُجدت
+            var imageSaved = false;
+            try {
+                var _att = await attachContractFileFromInput(String(c.contractNumber), 'edit_contractImage'); imageSaved = !!(_att && _att.ok);
+                if (imageSaved) {
+                    if (!c.actions) c.actions = [];
+                    c.actions.push('📅 ' + new Date().toLocaleString('ar-SA') + ': إرفاق/تحديث صورة العقد');
+                    c.hasContractImage = true;
+                    saveToLocalStorage();
+                }
+            } catch (eImg) { console.warn(eImg); }
+
+            showAlert('تم حفظ التعديلات وتسجيل الإجراءات' + (imageSaved ? ' + صورة العقد ✓' : ''), 'success');
             
             // ✅ إغلاق الـ modal بعد الرسم
             setTimeout(() => {
@@ -8697,6 +9493,9 @@ function generateReport(num) {
 
             const reportHtml = `
                 <div class="report-container">
+                    <div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:0 0 10px;padding:8px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;">
+                        <button type="button" class="btn-info" style="padding:8px 16px;font-weight:700;" onclick="openContractAttachment('${c.contractNumber}')">📄 عرض العقد</button>
+                    </div>
                     <div class="official-letterhead">
                         <img src="data:image/jpeg;base64,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" alt="ترويسة رسمية">
                     </div>
@@ -8783,15 +9582,152 @@ function generateReport(num) {
                 renderQrCode(qrEl, payload);
             });
         }
+
+        /** تقرير جماعي لكل ما يظهر في الجدول بعد الفلترة — بدون باركود */
+        function showFilteredTableReport() {
+            const data = (filteredContracts && filteredContracts.length) ? filteredContracts : (allContracts || []);
+            if (!data.length) {
+                showAlert('لا توجد بيانات للعرض بعد الفلترة', 'error');
+                return;
+            }
+            let totalValue = 0;
+            let totalDebt = 0;
+            let totalCreditor = 0;
+            let totalDebtDays = 0;
+            let totalCredDays = 0;
+            let countDebtors = 0;
+            let countCreditors = 0;
+            let rowsHtml = '';
+            function money(v) {
+                if (typeof formatCurrency === 'function') return formatCurrency(v || 0);
+                return (Math.round((Number(v) || 0) * 100) / 100).toLocaleString('ar-SA') + ' ر.س';
+            }
+            data.forEach(function(c, idx) {
+                const nd = calcNewDates(c.oldEndDate, c);
+                const st = getContractStatus(c.oldEndDate);
+                const qty = (c.newQuantity != null && c.newQuantity !== '') ? c.newQuantity : (c.quantity || 1);
+                const price = (c.newPricePerUnit != null && c.newPricePerUnit !== '') ? c.newPricePerUnit : (c.pricePerUnit || 0);
+                const value = (Number(price) || 0) * (Number(qty) || 1);
+                totalValue += value;
+                const debt = (typeof calcDebt === 'function') ? calcDebt(c) : { days: 0, amount: 0 };
+                const cred = (typeof calcCreditor === 'function') ? calcCreditor(c) : { days: 0, amount: 0 };
+                const debtAmt = Number(debt.amount) || 0;
+                const credAmt = Number(cred.amount) || 0;
+                const debtDays = Number(debt.days) || 0;
+                const credDays = Number(cred.days) || 0;
+                totalDebt += debtAmt;
+                totalCreditor += credAmt;
+                totalDebtDays += debtDays;
+                totalCredDays += credDays;
+                if (debtAmt > 0) countDebtors++;
+                if (credAmt > 0) countCreditors++;
+                const name = (typeof safeCustomerName === 'function') ? safeCustomerName(c.customerName) : (c.customerName || '-');
+                const debtCell = debtAmt > 0
+                    ? ('<span style="color:#b91c1c;font-weight:800;">' + money(debtAmt) + '</span><br><span style="font-size:0.85em;color:#7f1d1d;">(' + debtDays + ' يوم)</span>')
+                    : '<span style="color:#94a3b8;">0 ر.س</span>';
+                const credCell = credAmt > 0
+                    ? ('<span style="color:#15803d;font-weight:800;">' + money(credAmt) + '</span><br><span style="font-size:0.85em;color:#14532d;">(' + credDays + ' يوم)</span>')
+                    : '<span style="color:#94a3b8;">0 ر.س</span>';
+                rowsHtml += '<tr style="border-bottom:1px solid #e2e8f0;' + (debtAmt > 0 ? 'background:#fef2f2;' : (credAmt > 0 ? 'background:#f0fdf4;' : '')) + '">' +
+                    '<td style="padding:6px;text-align:center;">' + (idx + 1) + '</td>' +
+                    '<td style="padding:6px;font-weight:700;">' + (c.contractNumber || '-') + '</td>' +
+                    '<td style="padding:6px;">' + name + '</td>' +
+                    '<td style="padding:6px;direction:ltr;text-align:left;">' + (c.phone || '-') + '</td>' +
+                    '<td style="padding:6px;">' + (c.district || c.location || '-') + '</td>' +
+                    '<td style="padding:6px;">' + (c.binSize || '-') + ' × ' + (c.quantity || 1) + '</td>' +
+                    '<td style="padding:6px;font-weight:700;">' + money(value) + '</td>' +
+                    '<td style="padding:6px;">' + (typeof formatDate === 'function' ? formatDate(c.oldEndDate) : (c.oldEndDate || '-')) + '</td>' +
+                    '<td style="padding:6px;"><span class="badge-status ' + (st.class || '') + '">' + (st.label || '-') + '</span></td>' +
+                    '<td style="padding:6px;text-align:center;white-space:nowrap;background:#fee2e2;">' + debtCell + '</td>' +
+                    '<td style="padding:6px;text-align:center;white-space:nowrap;background:#dcfce7;">' + credCell + '</td>' +
+                    '</tr>';
+            });
+            const printDateStr = (function() {
+                const d = new Date();
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const yyyy = d.getFullYear();
+                const hh = String(d.getHours()).padStart(2, '0');
+                const mi = String(d.getMinutes()).padStart(2, '0');
+                return dd + '/' + mm + '/' + yyyy + ' — ' + hh + ':' + mi;
+            })();
+            const statusLabel = (document.getElementById('filterStatus') && document.getElementById('filterStatus').value) || '';
+            const statusNames = { active: 'ساري', warning: 'ينتهي خلال شهر', expired: 'منتهي', debtor: 'مدين', creditor: 'دائن' };
+            const filterNote = statusLabel ? ('فلتر الحالة: ' + (statusNames[statusLabel] || statusLabel)) : 'جميع الحالات / حسب الفلاتر المطبّقة';
+            const html = `
+                <div class="report-container">
+                    <div class="report-header">
+                        <h2>📄 تقرير العقود المفلترة</h2>
+                        <p>نظام إدارة عقود جمع النفايات</p>
+                        <p><strong>تاريخ الطباعة:</strong> ${printDateStr}</p>
+                        <p><strong>عدد السجلات:</strong> ${data.length} &nbsp;|&nbsp; <strong>${filterNote}</strong></p>
+                    </div>
+
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0 14px;">
+                        <div style="background:#f0fdfa;border:2px solid #0f766e;border-radius:10px;padding:12px;text-align:center;">
+                            <div style="font-size:0.8em;color:#64748b;font-weight:600;">إجمالي قيمة التجديد</div>
+                            <div style="font-size:1.15em;font-weight:800;color:#0f766e;margin-top:4px;">${money(totalValue)}</div>
+                        </div>
+                        <div style="background:#fef2f2;border:2px solid #dc2626;border-radius:10px;padding:12px;text-align:center;">
+                            <div style="font-size:0.8em;color:#991b1b;font-weight:700;">إجمالي المدين</div>
+                            <div style="font-size:1.25em;font-weight:900;color:#b91c1c;margin-top:4px;">${money(totalDebt)}</div>
+                            <div style="font-size:0.78em;color:#7f1d1d;margin-top:4px;">${countDebtors} عقد · ${totalDebtDays} يوم تأخير</div>
+                        </div>
+                        <div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:10px;padding:12px;text-align:center;">
+                            <div style="font-size:0.8em;color:#166534;font-weight:700;">إجمالي الدائن</div>
+                            <div style="font-size:1.25em;font-weight:900;color:#15803d;margin-top:4px;">${money(totalCreditor)}</div>
+                            <div style="font-size:0.78em;color:#14532d;margin-top:4px;">${countCreditors} عقد · ${totalCredDays} يوم متبقي</div>
+                        </div>
+                    </div>
+
+                    <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-size:0.82em;margin-top:4px;">
+                        <thead>
+                            <tr style="background:#0f766e;color:#fff;">
+                                <th style="padding:8px 6px;">م</th>
+                                <th style="padding:8px 6px;">رقم العقد</th>
+                                <th style="padding:8px 6px;">اسم العميل</th>
+                                <th style="padding:8px 6px;">الجوال</th>
+                                <th style="padding:8px 6px;">الحي</th>
+                                <th style="padding:8px 6px;">الحجم × العدد</th>
+                                <th style="padding:8px 6px;">قيمة التجديد</th>
+                                <th style="padding:8px 6px;">نهاية القديم</th>
+                                <th style="padding:8px 6px;">الحالة</th>
+                                <th style="padding:8px 6px;background:#b91c1c;">مدين (المبلغ)</th>
+                                <th style="padding:8px 6px;background:#15803d;">دائن (المبلغ)</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHtml}</tbody>
+                        <tfoot>
+                            <tr style="background:#f1f5f9;font-weight:800;">
+                                <td colspan="6" style="padding:10px;text-align:left;">الإجمالي</td>
+                                <td style="padding:10px;color:#0f766e;">${money(totalValue)}</td>
+                                <td colspan="2" style="padding:10px;"></td>
+                                <td style="padding:10px;text-align:center;background:#fee2e2;color:#b91c1c;">${money(totalDebt)}</td>
+                                <td style="padding:10px;text-align:center;background:#dcfce7;color:#15803d;">${money(totalCreditor)}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    </div>
+                    <p style="font-size:0.75em;color:#64748b;margin-top:10px;">ملاحظة: مبالغ المدين والدائن محسوبة وقت الطباعة حسب أيام التأخير / الأيام المتبقية — بدون رمز QR.</p>
+                </div>
+            `;
+            if (typeof openFloatReport === 'function') {
+                openFloatReport('تقرير مفلتر', html);
+            } else {
+                document.getElementById('reportContent').innerHTML = html;
+                document.getElementById('reportModal').style.display = 'block';
+            }
+        }
+
 function showMapReport() {
+            window.__mapReportContracts = (allContracts || []).slice();
             const active = allContracts.filter(c => getContractStatus(c.oldEndDate).status === 'active');
             const warning = allContracts.filter(c => getContractStatus(c.oldEndDate).status === 'warning');
             const expired = allContracts.filter(c => getContractStatus(c.oldEndDate).status === 'expired');
-            // فقط العقود التي لها إحداثيات قابلة للعرض (رابط جوجل ماب صالح)
             const withCoords = allContracts.filter(c => getLatLng(c));
             const withValidLink = allContracts.filter(c => typeof hasValidMapLink === 'function' ? hasValidMapLink(c) : !!getLatLng(c));
             function mapIcon(c) {
-                // أخضر = رابط جوجل ماب صالح ومسجّل · أبيض فارغ = لا يوجد رابط
                 if (typeof hasValidMapLink === 'function' && hasValidMapLink(c)) {
                     return '<span title="يوجد رابط خريطة صالح" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#16a34a;border:2px solid #15803d;box-shadow:0 0 0 1px #fff;"></span>';
                 }
@@ -8799,9 +9735,16 @@ function showMapReport() {
             }
             function list(arr) {
                 if (!arr.length) return '<p style="color:#94a3b8;">لا يوجد</p>';
-                return '<table style="width:100%;font-size:0.82em;margin-bottom:10px;border-collapse:collapse;"><thead><tr style="background:#f1f5f9;"><th style="padding:6px;">الخريطة</th><th style="padding:6px;">رقم العقد</th><th style="padding:6px;">اسم العميل</th><th style="padding:6px;">الموقع</th><th style="padding:6px;">رابط الموقع</th><th style="padding:6px;">الجوال</th><th style="padding:6px;">الحجم</th><th style="padding:6px;">الانتهاء</th><th style="padding:6px;">الأيام</th></tr></thead><tbody>' +
+                return '<table style="width:100%;font-size:0.78em;margin-bottom:10px;border-collapse:collapse;"><thead><tr style="background:#f1f5f9;">' +
+                    '<th style="padding:5px;">الخريطة</th><th style="padding:5px;">رقم العقد</th><th style="padding:5px;">اسم العميل</th>' +
+                    '<th style="padding:5px;">السجل</th><th style="padding:5px;">الجوال</th><th style="padding:5px;">الحي</th>' +
+                    '<th style="padding:5px;">البلدية</th><th style="padding:5px;">الحجم</th><th style="padding:5px;">العدد</th>' +
+                    '<th style="padding:5px;">الانتهاء</th><th style="padding:5px;">الأيام</th><th style="padding:5px;">مدين</th><th style="padding:5px;">دائن</th>' +
+                    '<th style="padding:5px;">رابط الموقع</th></tr></thead><tbody>' +
                     arr.map(c => {
                         const st = getContractStatus(c.oldEndDate);
+                        const debt = calcDebt(c);
+                        const cred = calcCreditor(c);
                         const mapLinkCell = c.mapUrl
                             ? '<a href="' + String(c.mapUrl).replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" style="color:#0f766e;font-weight:700;text-decoration:underline;">فتح الموقع</a>'
                             : '<span style="color:#94a3b8;">-</span>';
@@ -8809,15 +9752,20 @@ function showMapReport() {
                             ? '<a href="tel:' + String(c.phone).replace(/[^\d+]/g, '') + '" style="color:#0369a1;font-weight:700;text-decoration:underline;direction:ltr;display:inline-block;">' + String(c.phone) + '</a>'
                             : '<span style="color:#94a3b8;">-</span>';
                         return '<tr style="border-bottom:1px solid #e2e8f0;">' +
-                            '<td style="text-align:center;padding:6px;">' + mapIcon(c) + '</td>' +
-                            '<td style="padding:6px;">' + c.contractNumber + '</td>' +
-                            '<td style="padding:6px;">' + (c.customerName || '') + '</td>' +
-                            '<td style="padding:6px;">' + (c.district || c.location || '-') + '</td>' +
-                            '<td style="padding:6px;text-align:center;">' + mapLinkCell + '</td>' +
-                            '<td style="padding:6px;text-align:center;">' + phoneCell + '</td>' +
-                            '<td style="padding:6px;">' + (c.binSize || '') + '</td>' +
-                            '<td style="padding:6px;">' + formatDate(c.oldEndDate) + '</td>' +
-                            '<td style="padding:6px;">' + (st.daysLeft !== null ? st.daysLeft : '-') + '</td>' +
+                            '<td style="text-align:center;padding:5px;">' + mapIcon(c) + '</td>' +
+                            '<td style="padding:5px;">' + (c.contractNumber || '') + '</td>' +
+                            '<td style="padding:5px;">' + (c.customerName || '') + '</td>' +
+                            '<td style="padding:5px;">' + (c.commercialRegistry || '-') + '</td>' +
+                            '<td style="padding:5px;text-align:center;">' + phoneCell + '</td>' +
+                            '<td style="padding:5px;">' + (c.district || c.location || '-') + '</td>' +
+                            '<td style="padding:5px;">' + (c.municipality || '-') + '</td>' +
+                            '<td style="padding:5px;">' + (c.binSize || '') + '</td>' +
+                            '<td style="padding:5px;">' + (c.quantity || 1) + '</td>' +
+                            '<td style="padding:5px;">' + formatDate(c.oldEndDate) + '</td>' +
+                            '<td style="padding:5px;">' + (st.daysLeft !== null ? st.daysLeft : '-') + '</td>' +
+                            '<td style="padding:5px;color:#dc2626;">' + (debt.amount > 0 ? formatCurrency(debt.amount) : '-') + '</td>' +
+                            '<td style="padding:5px;color:#16a34a;">' + (cred.amount > 0 ? formatCurrency(cred.amount) : '-') + '</td>' +
+                            '<td style="padding:5px;text-align:center;">' + mapLinkCell + '</td>' +
                             '</tr>';
                     }).join('') + '</tbody></table>';
             }
@@ -8835,16 +9783,204 @@ function showMapReport() {
                             <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid #cbd5e1;vertical-align:middle;margin-right:8px;"></span> بدون رابط
                         </p>
                     </div>
+                    <div id="mapFiltersPanel" style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:10px;margin:8px 0 12px;">
+                        <div style="font-weight:700;color:#134e4a;margin-bottom:8px;font-size:0.95em;">🔍 فلترة قائمة الخريطة (جميع الأعمدة)</div>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;">
+                            <div><label style="font-size:0.72em;font-weight:600;color:#475569;">رقم العقد / العميل / جوال / سجل</label>
+                                <input type="text" id="mapF_q" placeholder="بحث..." style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-family:inherit;font-size:0.85em;"></div>
+                            <div><label style="font-size:0.72em;font-weight:600;color:#475569;">الحي / الموقع</label>
+                                <input type="text" id="mapF_district" placeholder="الحي..." style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-family:inherit;font-size:0.85em;"></div>
+                            <div><label style="font-size:0.72em;font-weight:600;color:#475569;">البلدية</label>
+                                <input type="text" id="mapF_muni" placeholder="البلدية..." style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-family:inherit;font-size:0.85em;"></div>
+                            <div><label style="font-size:0.72em;font-weight:600;color:#475569;">حجم الحاوية</label>
+                                <input type="text" id="mapF_size" placeholder="حجم..." style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-family:inherit;font-size:0.85em;"></div>
+                            <div><label style="font-size:0.72em;font-weight:600;color:#475569;">العدد</label>
+                                <input type="text" id="mapF_qty" placeholder="العدد..." style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-family:inherit;font-size:0.85em;"></div>
+                            <div><label style="font-size:0.72em;font-weight:600;color:#475569;">الآيزك / النشاط</label>
+                                <input type="text" id="mapF_isic" placeholder="نشاط..." style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-family:inherit;font-size:0.85em;"></div>
+                            <div><label style="font-size:0.72em;font-weight:600;color:#475569;">البريد</label>
+                                <input type="text" id="mapF_email" placeholder="بريد..." style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-family:inherit;font-size:0.85em;"></div>
+                            <div><label style="font-size:0.72em;font-weight:600;color:#475569;">الحالة</label>
+                                <select id="mapF_status" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-family:inherit;font-size:0.85em;">
+                                    <option value="">الكل</option>
+                                    <option value="active">ساري</option>
+                                    <option value="warning">ينتهي خلال شهر</option>
+                                    <option value="expired">منتهي</option>
+                                    <option value="debtor">مدين</option>
+                                    <option value="creditor">دائن</option>
+                                </select></div>
+                            <div><label style="font-size:0.72em;font-weight:600;color:#475569;">رابط الخريطة</label>
+                                <select id="mapF_maplink" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-family:inherit;font-size:0.85em;">
+                                    <option value="">الكل</option>
+                                    <option value="yes">يوجد رابط</option>
+                                    <option value="no">بدون رابط</option>
+                                </select></div>
+                            <div><label style="font-size:0.72em;font-weight:600;color:#475569;">ملاحظات</label>
+                                <input type="text" id="mapF_notes" placeholder="ملاحظات..." style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-family:inherit;font-size:0.85em;"></div>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                            <button type="button" class="btn-success" onclick="applyMapReportFilters()" style="padding:6px 12px;">🔍 تطبيق فلتر الخريطة</button>
+                            <button type="button" class="btn-warning" onclick="clearMapReportFilters()" style="padding:6px 12px;">🔄 مسح فلاتر الخريطة</button>
+                            <span id="mapFilterCount" style="font-size:0.85em;color:#134e4a;align-self:center;"></span>
+                        </div>
+                    </div>
                     <div id="clientsMap"></div>
-                    <p style="font-size:0.85em;color:#64748b;margin:8px 0;">اضغط على الدبوس لعرض التفاصيل. العقود بدون رابط جوجل ماب صالح لا تظهر على الخريطة. العمود «الخريطة» في الجداول أدناه يوضح من أُضيف له رابط ومن لم يُضف.</p>
-                    <h3 style="color:#16a34a;margin:12px 0 6px;">🟢 ساري (${active.length})</h3>${list(active)}
-                    <h3 style="color:#ca8a04;margin:12px 0 6px;">🟡 ينتهي خلال شهر (${warning.length})</h3>${list(warning)}
-                    <h3 style="color:#dc2626;margin:12px 0 6px;">🔴 منتهي (${expired.length})</h3>${list(expired)}
+                    <p style="font-size:0.85em;color:#64748b;margin:8px 0;">اضغط على الدبوس لعرض التفاصيل. العقود بدون رابط جوجل ماب صالح لا تظهر على الخريطة.</p>
+                    <div id="mapListsWrap">
+                        <h3 style="color:#16a34a;margin:12px 0 6px;">🟢 ساري (${active.length})</h3>${list(active)}
+                        <h3 style="color:#ca8a04;margin:12px 0 6px;">🟡 ينتهي خلال شهر (${warning.length})</h3>${list(warning)}
+                        <h3 style="color:#dc2626;margin:12px 0 6px;">🔴 منتهي (${expired.length})</h3>${list(expired)}
+                    </div>
                 </div>
             `;
             document.getElementById('mapReportModal').style.display = 'block';
             setTimeout(() => initClientsMap(withCoords), 150);
+            setTimeout(function() {
+                ['mapF_q','mapF_district','mapF_muni','mapF_size','mapF_qty','mapF_isic','mapF_email','mapF_notes'].forEach(function(id) {
+                    var el = document.getElementById(id);
+                    if (el) el.addEventListener('input', function() { applyMapReportFilters(); });
+                });
+                ['mapF_status','mapF_maplink'].forEach(function(id) {
+                    var el = document.getElementById(id);
+                    if (el) el.addEventListener('change', function() { applyMapReportFilters(); });
+                });
+            }, 200);
         }
+
+        function getMapFilteredContracts() {
+            var source = window.__mapReportContracts || allContracts || [];
+            function v(id) {
+                var el = document.getElementById(id);
+                return el ? String(el.value || '').trim().toLowerCase() : '';
+            }
+            var q = v('mapF_q');
+            var district = v('mapF_district');
+            var muni = v('mapF_muni');
+            var size = v('mapF_size');
+            var qty = v('mapF_qty');
+            var isic = v('mapF_isic');
+            var email = v('mapF_email');
+            var notes = v('mapF_notes');
+            var statusF = v('mapF_status');
+            var maplink = v('mapF_maplink');
+            return source.filter(function(c) {
+                if (q) {
+                    var blob = [c.contractNumber, c.customerName, c.phone, c.commercialRegistry, c.commercialActLicense, c.email]
+                        .map(function(x) { return String(x || '').toLowerCase(); }).join(' ');
+                    if (blob.indexOf(q) === -1) return false;
+                }
+                if (district) {
+                    var loc = String(c.district || c.location || '').toLowerCase();
+                    if (loc.indexOf(district) === -1) return false;
+                }
+                if (muni) {
+                    if (String(c.municipality || '').toLowerCase().indexOf(muni) === -1) return false;
+                }
+                if (size) {
+                    var bs = String(c.binSize || '').toLowerCase() + ' ' + String(c.newBinSize || '').toLowerCase();
+                    if (bs.indexOf(size) === -1) return false;
+                }
+                if (qty) {
+                    if (String(c.quantity || '') !== qty && String(c.newQuantity || '') !== qty) return false;
+                }
+                if (isic) {
+                    if (String(c.isicClassification || '').toLowerCase().indexOf(isic) === -1) return false;
+                }
+                if (email) {
+                    if (String(c.email || '').toLowerCase().indexOf(email) === -1) return false;
+                }
+                if (notes) {
+                    if (String(c.notes || c.note || '').toLowerCase().indexOf(notes) === -1) return false;
+                }
+                if (statusF) {
+                    var st = getContractStatus(c.oldEndDate).status;
+                    if (statusF === 'debtor') {
+                        if (!(calcDebt(c).amount > 0)) return false;
+                    } else if (statusF === 'creditor') {
+                        if (!(calcCreditor(c).amount > 0)) return false;
+                    } else if (st !== statusF) return false;
+                }
+                if (maplink === 'yes') {
+                    if (!(typeof hasValidMapLink === 'function' ? hasValidMapLink(c) : !!getLatLng(c))) return false;
+                } else if (maplink === 'no') {
+                    if (typeof hasValidMapLink === 'function' ? hasValidMapLink(c) : !!getLatLng(c)) return false;
+                }
+                return true;
+            });
+        }
+
+        function applyMapReportFilters() {
+            var filtered = getMapFilteredContracts();
+            var active = filtered.filter(function(c) { return getContractStatus(c.oldEndDate).status === 'active'; });
+            var warning = filtered.filter(function(c) { return getContractStatus(c.oldEndDate).status === 'warning'; });
+            var expired = filtered.filter(function(c) { return getContractStatus(c.oldEndDate).status === 'expired'; });
+            var withCoords = filtered.filter(function(c) { return getLatLng(c); });
+            function mapIcon(c) {
+                if (typeof hasValidMapLink === 'function' && hasValidMapLink(c)) {
+                    return '<span title="يوجد رابط خريطة صالح" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#16a34a;border:2px solid #15803d;"></span>';
+                }
+                return '<span title="لا يوجد رابط خريطة" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid #cbd5e1;"></span>';
+            }
+            function list(arr) {
+                if (!arr.length) return '<p style="color:#94a3b8;">لا يوجد</p>';
+                return '<table style="width:100%;font-size:0.78em;margin-bottom:10px;border-collapse:collapse;"><thead><tr style="background:#f1f5f9;">' +
+                    '<th style="padding:5px;">الخريطة</th><th style="padding:5px;">رقم العقد</th><th style="padding:5px;">اسم العميل</th>' +
+                    '<th style="padding:5px;">السجل</th><th style="padding:5px;">الجوال</th><th style="padding:5px;">الحي</th>' +
+                    '<th style="padding:5px;">البلدية</th><th style="padding:5px;">الحجم</th><th style="padding:5px;">العدد</th>' +
+                    '<th style="padding:5px;">الانتهاء</th><th style="padding:5px;">الأيام</th><th style="padding:5px;">مدين</th><th style="padding:5px;">دائن</th>' +
+                    '<th style="padding:5px;">رابط الموقع</th></tr></thead><tbody>' +
+                    arr.map(function(c) {
+                        var st = getContractStatus(c.oldEndDate);
+                        var debt = calcDebt(c);
+                        var cred = calcCreditor(c);
+                        var mapLinkCell = c.mapUrl
+                            ? '<a href="' + String(c.mapUrl).replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" style="color:#0f766e;font-weight:700;text-decoration:underline;">فتح الموقع</a>'
+                            : '<span style="color:#94a3b8;">-</span>';
+                        var phoneCell = c.phone
+                            ? '<a href="tel:' + String(c.phone).replace(/[^\d+]/g, '') + '" style="color:#0369a1;font-weight:700;text-decoration:underline;direction:ltr;display:inline-block;">' + String(c.phone) + '</a>'
+                            : '<span style="color:#94a3b8;">-</span>';
+                        return '<tr style="border-bottom:1px solid #e2e8f0;">' +
+                            '<td style="text-align:center;padding:5px;">' + mapIcon(c) + '</td>' +
+                            '<td style="padding:5px;">' + (c.contractNumber || '') + '</td>' +
+                            '<td style="padding:5px;">' + (c.customerName || '') + '</td>' +
+                            '<td style="padding:5px;">' + (c.commercialRegistry || '-') + '</td>' +
+                            '<td style="padding:5px;text-align:center;">' + phoneCell + '</td>' +
+                            '<td style="padding:5px;">' + (c.district || c.location || '-') + '</td>' +
+                            '<td style="padding:5px;">' + (c.municipality || '-') + '</td>' +
+                            '<td style="padding:5px;">' + (c.binSize || '') + '</td>' +
+                            '<td style="padding:5px;">' + (c.quantity || 1) + '</td>' +
+                            '<td style="padding:5px;">' + formatDate(c.oldEndDate) + '</td>' +
+                            '<td style="padding:5px;">' + (st.daysLeft !== null ? st.daysLeft : '-') + '</td>' +
+                            '<td style="padding:5px;color:#dc2626;">' + (debt.amount > 0 ? formatCurrency(debt.amount) : '-') + '</td>' +
+                            '<td style="padding:5px;color:#16a34a;">' + (cred.amount > 0 ? formatCurrency(cred.amount) : '-') + '</td>' +
+                            '<td style="padding:5px;text-align:center;">' + mapLinkCell + '</td>' +
+                            '</tr>';
+                    }).join('') + '</tbody></table>';
+            }
+            var wrap = document.getElementById('mapListsWrap');
+            if (wrap) {
+                wrap.innerHTML =
+                    '<h3 style="color:#16a34a;margin:12px 0 6px;">🟢 ساري (' + active.length + ')</h3>' + list(active) +
+                    '<h3 style="color:#ca8a04;margin:12px 0 6px;">🟡 ينتهي خلال شهر (' + warning.length + ')</h3>' + list(warning) +
+                    '<h3 style="color:#dc2626;margin:12px 0 6px;">🔴 منتهي (' + expired.length + ')</h3>' + list(expired);
+            }
+            var cnt = document.getElementById('mapFilterCount');
+            if (cnt) cnt.textContent = 'النتائج: ' + filtered.length + ' عقد | على الخريطة: ' + withCoords.length;
+            setTimeout(function() { initClientsMap(withCoords); }, 80);
+        }
+
+        function clearMapReportFilters() {
+            ['mapF_q','mapF_district','mapF_muni','mapF_size','mapF_qty','mapF_isic','mapF_email','mapF_notes'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            ['mapF_status','mapF_maplink'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            applyMapReportFilters();
+        }
+
 // ===============================
 // تقرير المطالبات القادمة
 // ===============================
@@ -9490,7 +10626,7 @@ document.getElementById("reportModal").style.display="block";
         </div>
     </div>
 
-    <div id="passwordModal" class="modal" style="z-index:3000;">
+    <div id="passwordModal" class="modal" style="z-index:10000;">
         <div class="modal-content" style="max-width:400px;margin:15% auto;">
             <div style="font-weight:700;color:#134e4a;margin-bottom:10px;font-size:1.05em;" id="passwordModalTitle">كلمة السر</div>
             <p id="passwordModalMsg" style="color:#475569;font-size:0.9em;margin-bottom:10px;"></p>
